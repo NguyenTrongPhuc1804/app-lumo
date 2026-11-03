@@ -1,0 +1,9 @@
+expo.modules.screentranslator.screen-translator-pngs-0 D:\Source-code\rea-clone\mobile\modules\screen-translator\android\build\generated\res\pngs\debug
+expo.modules.screentranslator.screen-translator-updated_navigation_xml-1 D:\Source-code\rea-clone\mobile\modules\screen-translator\android\build\generated\updated_navigation_xml\debug
+expo.modules.screentranslator.screen-translator-mergeDebugResources-2 D:\Source-code\rea-clone\mobile\modules\screen-translator\android\build\intermediates\incremental\debug\mergeDebugResources\merged.dir
+expo.modules.screentranslator.screen-translator-mergeDebugResources-3 D:\Source-code\rea-clone\mobile\modules\screen-translator\android\build\intermediates\incremental\debug\mergeDebugResources\stripped.dir
+expo.modules.screentranslator.screen-translator-debug-4 D:\Source-code\rea-clone\mobile\modules\screen-translator\android\build\intermediates\merged_res\debug\mergeDebugResources
+expo.modules.screentranslator.screen-translator-debug-5 D:\Source-code\rea-clone\mobile\modules\screen-translator\android\build\intermediates\packaged_res\debug\packageDebugResources
+expo.modules.screentranslator.screen-translator-debug-6 D:\Source-code\rea-clone\mobile\modules\screen-translator\android\src\debug\res
+expo.modules.screentranslator.screen-translator-main-7 D:\Source-code\rea-clone\mobile\modules\screen-translator\android\src\main\res
+gradleHome-0 C:\Users\Admin\.gradle

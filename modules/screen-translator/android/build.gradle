@@ -1,0 +1,25 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'expo.modules.screentranslator'
+version = '1.0.0'
+
+android {
+  namespace "expo.modules.screentranslator"
+  defaultConfig {
+    versionCode 1
+    versionName '1.0.0'
+  }
+}
+
+dependencies {
+  implementation 'androidx.core:core-ktx:1.15.0'
+
+  // OCR chay tren may (model di kem app). Moi thu tieng dung mot thu vien rieng.
+  implementation 'com.google.mlkit:text-recognition:16.0.1'          // Latin (Anh, Viet, Phap...)
+  implementation 'com.google.mlkit:text-recognition-chinese:16.0.1'  // Trung
+  implementation 'com.google.mlkit:text-recognition-japanese:16.0.1' // Nhat
+  implementation 'com.google.mlkit:text-recognition-korean:16.0.1'   // Han
+}
