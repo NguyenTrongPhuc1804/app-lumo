@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Alert, Modal, Pressable, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, Text, View } from "react-native";
 import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withSpring, withTiming } from "react-native-reanimated";
 import { LANGS, labelOf, startTranslator, stopTranslator } from "../lib/api";
 import { useSettings } from "../lib/settings";
@@ -32,6 +32,9 @@ export default function HomePanel({ onManageModels }: { onManageModels: () => vo
     running,
     setRunning,
     hasOverlayPermission,
+    modelsLoading,
+    modelsError,
+    reloadModels,
   } = useSettings();
   const [pickerFor, setPickerFor] = useState<"source" | "target" | "model" | null>(null);
 
@@ -128,6 +131,8 @@ export default function HomePanel({ onManageModels }: { onManageModels: () => vo
       {/* Khoi chon model dich */}
       <View style={styles.card}>
         <Text style={styles.langCaption}>Công cụ dịch</Text>
+        {modelsLoading ? <View style={styles.rowBetween}><ActivityIndicator /><Text style={styles.hint}>Đang tải danh sách...</Text></View> : null}
+        {modelsError ? <Text style={styles.hint}>{modelsError}</Text> : null}
         <Pressable style={styles.langButton} accessibilityRole="button" accessibilityLabel="Chọn model dịch" onPress={() => setPickerFor("model")}>
           <Text style={styles.langButtonText}>{currentModelName} ▾</Text>
         </Pressable>
@@ -162,6 +167,8 @@ export default function HomePanel({ onManageModels }: { onManageModels: () => vo
             </Text>
             {pickerFor === "model" ? (
               <>
+                {modelsLoading ? <View style={styles.rowBetween}><ActivityIndicator /><Text style={styles.hint}>Đang tải danh sách...</Text></View> : null}
+                {modelsError ? <View><Text style={styles.hint}>{modelsError}</Text><Pressable disabled={modelsLoading} onPress={reloadModels}><Text style={styles.actionBtnText}>Thử lại</Text></Pressable></View> : null}
                 <ScrollView style={{ maxHeight: 320 }}>
                   {modelList.map((m) => {
                     const selected = model === m.code;

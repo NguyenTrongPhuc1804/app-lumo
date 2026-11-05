@@ -1,5 +1,5 @@
 import { router, Stack, useFocusEffect } from "expo-router";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { BackHandler, Modal, Pressable, ScrollView, Text, View } from "react-native";
 import HomePanel from "../../components/HomePanel";
 import { ModelForm } from "../../components/ModelForm";
@@ -20,6 +20,16 @@ export default function TabsLayout() {
   const [tab, setTab] = useState("home");
   const [formId, setFormId] = useState("");
   const [formVisible, setFormVisible] = useState(false);
+  const [formInstance, setFormInstance] = useState(0);
+  const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
+  const changeSaving = (value: boolean) => {
+    savingRef.current = value;
+    setSaving(value);
+  };
+  const closeForm = () => {
+    if (!savingRef.current) setFormVisible(false);
+  };
 
   useFocusEffect(
     useCallback(() => {
@@ -29,7 +39,7 @@ export default function TabsLayout() {
       // Nut back Android: dang mo form thi dong form, dang o tab khac thi ve Trang chu
       const sub = BackHandler.addEventListener("hardwareBackPress", () => {
         if (formVisible) {
-          setFormVisible(false);
+          closeForm();
           return true;
         }
         if (tab !== "home") {
@@ -43,6 +53,7 @@ export default function TabsLayout() {
   );
 
   const openForm = (id: string) => {
+    setFormInstance((value) => value + 1);
     setFormId(id);
     setFormVisible(true);
   };
@@ -88,11 +99,11 @@ export default function TabsLayout() {
         visible={formVisible}
         transparent
         animationType="slide"
-        onRequestClose={() => setFormVisible(false)}
+        onRequestClose={closeForm}
       >
-        <Pressable style={styles.modalBackdrop} onPress={() => setFormVisible(false)}>
+        <Pressable style={styles.modalBackdrop} onPress={closeForm}>
           <Pressable style={styles.modalCardLarge} onPress={(e) => e.stopPropagation()}>
-            <ModelForm id={formId} onClose={() => setFormVisible(false)} />
+            <ModelForm key={formInstance} id={formId} onClose={closeForm} saving={saving} onSavingChange={changeSaving} />
           </Pressable>
         </Pressable>
       </Modal>

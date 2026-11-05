@@ -1,8 +1,8 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { AppState, Platform } from "react-native";
 import ScreenTranslator from "../modules/screen-translator";
-import { DEFAULT_MODELS, fetchAdminModels, fetchModels, type CustomModel } from "./api";
+import { DEFAULT_MODELS, deleteModel, fetchAdminModels, fetchModels, type CustomModel } from "./api";
 const STORAGE_KEY = "lumo-lens-settings";
 const ONBOARDED_KEY = "lumo-lens-onboarded";
 const ADMIN_KEY_STORAGE = "lumo-lens-admin-key";
@@ -22,8 +22,14 @@ type Settings = {
   setModel: (code: string) => void;
   modelList: { code: string; label: string }[];
   customModels: CustomModel[];
-  reloadModels: () => void;
+  reloadModels: () => Promise<void>;
   reloadAdminModels: () => Promise<void>;
+  modelsLoading: boolean;
+  adminModelsLoading: boolean;
+  modelsError: string | null;
+  adminModelsError: string | null;
+  deletingIds: string[];
+  removeModel: (id: string) => Promise<string | null>;
 
   running: boolean;
   setRunning: (value: boolean) => void;
@@ -53,17 +59,65 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const [hasOverlayPermission, setHasOverlayPermission] = useState(false);
   const [onboarded, setOnboarded] = useState<boolean | null>(null);
 
-  // Cap nhat lai danh sach model app chon duoc
-  const reloadModels = () => {
-    fetchModels(serverUrl).then((list) => {
+  const [modelsLoading, setModelsLoading] = useState(true);
+  const [adminModelsLoading, setAdminModelsLoading] = useState(true);
+  const [modelsError, setModelsError] = useState<string | null>(null);
+  const [adminModelsError, setAdminModelsError] = useState<string | null>(null);
+  const modelsRequest = useRef(0);
+  const adminRequest = useRef(0);
+  const config = useRef({ serverUrl, adminKey });
+  config.current = { serverUrl, adminKey };
+  const [deletingIds, setDeletingIds] = useState<string[]>([]);
+  const deleting = useRef(new Set<string>());
+
+  // Chi request moi nhat duoc phep cap nhat du lieu va loading.
+  const reloadModels = useCallback(async () => {
+    if (config.current.serverUrl !== serverUrl) return;
+    const request = ++modelsRequest.current;
+    setModelsLoading(true);
+    setModelsError(null);
+    try {
+      const list = await fetchModels(serverUrl);
+      if (request !== modelsRequest.current) return;
       setModelList(list);
       setModel((prev) => (list.some((m) => m.code === prev) ? prev : list[0]?.code ?? ""));
-    });
-  };
+    } catch (err) {
+      if (request === modelsRequest.current) setModelsError(err instanceof Error ? err.message : "Không tải được danh sách model.");
+    } finally {
+      if (request === modelsRequest.current) setModelsLoading(false);
+    }
+  }, [serverUrl]);
 
-  const reloadAdminModels = async () => {
-    const result = await fetchAdminModels(serverUrl, adminKey);
-    if (result !== "unauthorized") setCustomModels(result);
+  const reloadAdminModels = useCallback(async () => {
+    if (config.current.serverUrl !== serverUrl || config.current.adminKey !== adminKey) return;
+    const request = ++adminRequest.current;
+    setAdminModelsLoading(true);
+    setAdminModelsError(null);
+    try {
+      const list = await fetchAdminModels(serverUrl, adminKey);
+      if (request === adminRequest.current) setCustomModels(list);
+    } catch (err) {
+      if (request === adminRequest.current) setAdminModelsError(err instanceof Error ? err.message : "Không tải được danh sách model.");
+    } finally {
+      if (request === adminRequest.current) setAdminModelsLoading(false);
+    }
+  }, [serverUrl, adminKey]);
+
+  // Giu trang thai xoa o provider de khong mat khi chuyen tab.
+  const removeModel = async (id: string) => {
+    if (config.current.serverUrl !== serverUrl || config.current.adminKey !== adminKey) return "Cấu hình đã thay đổi. Vui lòng thử lại.";
+    if (deleting.current.has(id)) return null;
+    deleting.current.add(id);
+    setDeletingIds([...deleting.current]);
+    try {
+      const error = await deleteModel(serverUrl, adminKey, id);
+      if (error) return error;
+      await Promise.all([reloadAdminModels(), reloadModels()]);
+      return null;
+    } finally {
+      deleting.current.delete(id);
+      setDeletingIds([...deleting.current]);
+    }
   };
 
   // Doc cai dat da luu 1 lan khi mo app
@@ -84,8 +138,16 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    setModelList(DEFAULT_MODELS);
     reloadModels();
-  }, [serverUrl]);
+    return () => { modelsRequest.current++; };
+  }, [reloadModels]);
+
+  useEffect(() => {
+    setCustomModels([]);
+    reloadAdminModels();
+    return () => { adminRequest.current++; };
+  }, [reloadAdminModels]);
 
   // Moi lan quay lai app (vd sau khi cap quyen o man hinh Cai dat) thi kiem tra lai trang thai
   useEffect(() => {
@@ -144,6 +206,12 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         customModels,
         reloadModels,
         reloadAdminModels,
+        modelsLoading,
+        adminModelsLoading,
+        modelsError,
+        adminModelsError,
+        deletingIds,
+        removeModel,
         running,
         setRunning,
         hasOverlayPermission,

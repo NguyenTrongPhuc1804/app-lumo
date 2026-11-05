@@ -1,19 +1,18 @@
 import { useCallback } from "react";
-import { Alert, Pressable, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Pressable, Text, View } from "react-native";
 import { useFocusEffect } from "expo-router";
-import { deleteModel } from "../lib/api";
 import { useSettings } from "../lib/settings";
 import { styles } from "../lib/theme";
 
 export default function ModelsPanel({ onOpenForm }: { onOpenForm: (id: string) => void }) {
-  const { serverUrl, adminKey, model, customModels, setModel, reloadModels, reloadAdminModels } = useSettings();
+  const { adminKey, model, customModels, setModel, reloadModels, reloadAdminModels, adminModelsLoading, adminModelsError, deletingIds, removeModel } = useSettings();
 
   // Moi lan vao tab thi lay lai danh sach moi nhat tu server
   useFocusEffect(
     useCallback(() => {
       reloadAdminModels();
       reloadModels();
-    }, [])
+    }, [reloadAdminModels, reloadModels])
   );
 
   // Xoa model tren server
@@ -24,13 +23,8 @@ export default function ModelsPanel({ onOpenForm }: { onOpenForm: (id: string) =
         text: "Xóa",
         style: "destructive",
         onPress: async () => {
-          const error = await deleteModel(serverUrl, adminKey, id);
-          if (error) {
-            Alert.alert("Không xóa được", error);
-            return;
-          }
-          reloadAdminModels();
-          reloadModels();
+          const error = await removeModel(id);
+          if (error) Alert.alert("Không xóa được", error);
         },
       },
     ]);
@@ -54,15 +48,30 @@ export default function ModelsPanel({ onOpenForm }: { onOpenForm: (id: string) =
       {/* Danh sach model tren server */}
       <View style={styles.card}>
         <Text style={styles.sectionTitle}>Model trên server</Text>
-        {customModels.length === 0 ? (
+        {adminModelsLoading ? (
+          <View style={styles.rowBetween}>
+            <ActivityIndicator />
+            <Text style={styles.hint}>{customModels.length ? "Đang cập nhật..." : "Đang tải danh sách..."}</Text>
+          </View>
+        ) : null}
+        {adminModelsError ? (
+          <View>
+            <Text style={styles.hint}>{adminModelsError}</Text>
+            <Pressable onPress={reloadAdminModels} disabled={adminModelsLoading} accessibilityRole="button">
+              <Text style={styles.actionBtnText}>Thử lại</Text>
+            </Pressable>
+          </View>
+        ) : null}
+        {customModels.length === 0 ? (!adminModelsLoading && !adminModelsError ? (
           <Text style={styles.emptyText}>
             {adminKey.trim()
               ? 'Server chưa có model nào. Nhấn "+ Thêm Model" để tạo.'
               : "Nhập ADMIN_KEY trong tab Cài đặt để xem và sửa danh sách model trên server."}
           </Text>
-        ) : (
+        ) : null) : (
           customModels.map((item) => {
             const isSelected = model === item.code;
+            const isDeleting = deletingIds.includes(item.id);
             return (
               <View key={item.id} style={[styles.modelCardItem, isSelected && styles.modelCardSelected]}>
                 <View style={styles.rowBetween}>
@@ -80,18 +89,20 @@ export default function ModelsPanel({ onOpenForm }: { onOpenForm: (id: string) =
                 </View>
 
                 <View style={styles.modelActionsRow}>
-                  <Pressable style={styles.actionBtn} accessibilityRole="button" onPress={() => onOpenForm(item.id)}>
+                  <Pressable style={styles.actionBtn} disabled={isDeleting} accessibilityRole="button" onPress={() => onOpenForm(item.id)}>
                     <Text style={styles.actionBtnText}>✏ Sửa</Text>
                   </Pressable>
                   <Pressable
                     style={[styles.actionBtn, styles.actionBtnAccent]}
                     accessibilityRole="button"
+                    disabled={isDeleting}
                     onPress={() => setModel(item.code)}
                   >
                     <Text style={styles.actionBtnAccentText}>✓ Dùng</Text>
                   </Pressable>
-                  <Pressable style={styles.actionBtnDanger} accessibilityRole="button" onPress={() => handleDelete(item.id, item.name)}>
-                    <Text style={styles.actionBtnDangerText}>✕ Xóa</Text>
+                  <Pressable style={styles.actionBtnDanger} disabled={isDeleting} accessibilityRole="button" onPress={() => handleDelete(item.id, item.name)}>
+                    {isDeleting ? <ActivityIndicator /> : null}
+                    <Text style={styles.actionBtnDangerText}>{isDeleting ? "Đang xóa..." : "✕ Xóa"}</Text>
                   </Pressable>
                 </View>
               </View>

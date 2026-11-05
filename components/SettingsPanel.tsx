@@ -1,10 +1,10 @@
-import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { useSettings } from "../lib/settings";
 import { TEXT_MUTED, styles } from "../lib/theme";
 import ScreenTranslator from "../modules/screen-translator";
 
 export default function SettingsPanel() {
-  const { serverUrl, setServerUrl, adminKey, setAdminKey, hasOverlayPermission, reloadModels } = useSettings();
+  const { serverUrl, setServerUrl, adminKey, setAdminKey, hasOverlayPermission, reloadModels, modelsLoading, modelsError } = useSettings();
 
   return (
     <ScrollView contentContainerStyle={styles.content}>
@@ -33,6 +33,8 @@ export default function SettingsPanel() {
           placeholderTextColor={TEXT_MUTED}
           accessibilityLabel="Địa chỉ server"
         />
+        {modelsLoading ? <View style={styles.rowBetween}><ActivityIndicator /><Text style={styles.hint}>Đang tải danh sách model...</Text></View> : null}
+        {modelsError ? <View><Text style={styles.hint}>{modelsError}</Text><Pressable disabled={modelsLoading} onPress={reloadModels}><Text style={styles.actionBtnText}>Thử lại</Text></Pressable></View> : null}
         <Text style={styles.hint}>Máy ảo Android dùng 10.0.2.2. Điện thoại thật dùng IP máy tính trong cùng mạng Wi-Fi.</Text>
       </View>
 

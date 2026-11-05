@@ -32,32 +32,28 @@ type ModelOption = { code: string; label: string };
 // Lay danh sach model dang bat tu server, khong co thi tra ve danh sach mac dinh
 export async function fetchModels(url: string): Promise<ModelOption[]> {
   if (!apiBase(url)) return DEFAULT_MODELS;
-  try {
-    const res = await fetch(`${apiBase(url)}/api/models`, {
-      headers: { "x-app-key": process.env.EXPO_PUBLIC_APP_KEY ?? "" },
-    });
-    if (!res.ok) return DEFAULT_MODELS;
-    const data = await res.json();
-    if (!Array.isArray(data) || data.length === 0) return DEFAULT_MODELS;
-    return data.map((item: any) => ({ code: item.code, label: item.name || item.code }));
-  } catch {
-    return DEFAULT_MODELS;
-  }
+  const res = await fetch(`${apiBase(url)}/api/models`, {
+    headers: { "x-app-key": process.env.EXPO_PUBLIC_APP_KEY ?? "" },
+  });
+  if (!res.ok) throw new Error(`Không tải được model: HTTP ${res.status}`);
+  const data = await res.json();
+  if (!Array.isArray(data)) throw new Error("Danh sách model không hợp lệ.");
+  if (data.length === 0) return DEFAULT_MODELS;
+  return data.map((item: any) => ({ code: item.code, label: item.name || item.code }));
 }
 
 // Danh sach day du cho man CRUD (can x-admin-key)
-export async function fetchAdminModels(url: string, adminKey: string): Promise<CustomModel[] | "unauthorized"> {
-  if (!adminKey.trim()) return [];
-  try {
-    const res = await fetch(`${apiBase(url)}/api/admin/models`, {
-      headers: { "Content-Type": "application/json", "x-admin-key": adminKey.trim() },
-    });
-    if (res.status === 401) return "unauthorized";
-    const data = await res.json().catch(() => null);
-    return Array.isArray(data) ? data : [];
-  } catch {
-    return [];
-  }
+export async function fetchAdminModels(url: string, adminKey: string): Promise<CustomModel[]> {
+  if (!adminKey.trim()) throw new Error("Nhập ADMIN_KEY trong tab Cài đặt để xem danh sách model.");
+  if (!apiBase(url)) throw new Error("Nhập địa chỉ server trong tab Cài đặt.");
+  const res = await fetch(`${apiBase(url)}/api/admin/models`, {
+    headers: { "Content-Type": "application/json", "x-admin-key": adminKey.trim() },
+  });
+  if (res.status === 401) throw new Error("ADMIN_KEY không hợp lệ. Kiểm tra lại trong tab Cài đặt.");
+  const data = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(data?.error || `Server trả về ${res.status}`);
+  if (!Array.isArray(data)) throw new Error("Danh sách model không hợp lệ.");
+  return data;
 }
 
 // Xoa model tren server. Tra ve thong bao loi, null neu thanh cong.

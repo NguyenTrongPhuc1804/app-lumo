@@ -1,10 +1,12 @@
-import { useEffect, useState } from "react";
-import { Alert, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { ActivityIndicator, Alert, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { ACCENT, TEXT_MUTED, styles } from "../lib/theme";
 import { useSettings } from "../lib/settings";
 
 // id = "new" thi tao moi, con lai la id model tren server
-export function ModelForm({ id, onClose }: { id: string; onClose: () => void }) {
+export function ModelForm({ id, onClose, saving, onSavingChange }: { id: string; onClose: () => void; saving: boolean; onSavingChange: (value: boolean) => void }) {
+  const savingRef = useRef(false);
+  const testingRef = useRef(false);
   const { serverUrl, adminKey, customModels, reloadAdminModels, reloadModels, setModel } = useSettings();
   const isNew = id === "new";
   const editing = isNew ? null : customModels.find((m) => m.id === id) ?? null;
@@ -29,17 +31,19 @@ export function ModelForm({ id, onClose }: { id: string; onClose: () => void }) 
 
   // Kiem tra baseUrl + apiKey truoc khi luu. Key de trong thi server dung key da luu.
   const handleTest = async () => {
+    if (savingRef.current || testingRef.current) return;
     if (!formCode.trim()) {
       setKeyTest({ state: "fail", msg: "Nhập Mã Model ID trước" });
       return;
     }
+    testingRef.current = true;
     setKeyTest({ state: "loading", msg: "Đang kiểm tra..." });
     try {
       const res = await fetch(`${apiBase}/api/admin/models/verify`, {
         method: "POST",
         headers: adminHeaders,
         body: JSON.stringify({
-          id: editing?.id,
+          id: isNew ? undefined : id,
           model: formCode.trim(),
           baseUrl: formBaseUrl.trim(),
           apiKey: formApiKey.trim(),
@@ -53,11 +57,14 @@ export function ModelForm({ id, onClose }: { id: string; onClose: () => void }) 
       setKeyTest({ state: "ok", msg: `OK: ${data.sample}` });
     } catch (err: any) {
       setKeyTest({ state: "fail", msg: err.message });
+    } finally {
+      testingRef.current = false;
     }
   };
 
   // Luu len server: tao moi hoac sua. Server tu goi thu model truoc khi luu.
   const handleSave = async () => {
+    if (savingRef.current || testingRef.current) return;
     if (!formName.trim() || !formCode.trim()) {
       Alert.alert("Thiếu thông tin", "Vui lòng nhập Tên hiển thị và Mã model.");
       return;
@@ -67,7 +74,9 @@ export function ModelForm({ id, onClose }: { id: string; onClose: () => void }) 
       return;
     }
 
-    const url = isNew ? `${apiBase}/api/admin/models` : `${apiBase}/api/admin/models/${editing?.id}`;
+    savingRef.current = true;
+    onSavingChange(true);
+    const url = isNew ? `${apiBase}/api/admin/models` : `${apiBase}/api/admin/models/${id}`;
     try {
       const res = await fetch(url, {
         method: isNew ? "POST" : "PUT",
@@ -86,11 +95,16 @@ export function ModelForm({ id, onClose }: { id: string; onClose: () => void }) 
         return;
       }
       if (isNew) setModel(data.model.code);
+      onSavingChange(false);
+      savingRef.current = false;
       onClose();
       reloadAdminModels();
       reloadModels();
     } catch (err: any) {
       Alert.alert("Lỗi mạng", err.message);
+    } finally {
+      savingRef.current = false;
+      onSavingChange(false);
     }
   };
 
@@ -102,6 +116,7 @@ export function ModelForm({ id, onClose }: { id: string; onClose: () => void }) 
         <View>
           <Text style={styles.inputLabel}>Tên hiển thị (*)</Text>
           <TextInput
+            editable={!saving}
             style={styles.input}
             value={formName}
             onChangeText={setFormName}
@@ -113,6 +128,7 @@ export function ModelForm({ id, onClose }: { id: string; onClose: () => void }) 
         <View>
           <Text style={styles.inputLabel}>Mã Model ID (*)</Text>
           <TextInput
+            editable={!saving}
             style={styles.input}
             value={formCode}
             onChangeText={setFormCode}
@@ -126,6 +142,7 @@ export function ModelForm({ id, onClose }: { id: string; onClose: () => void }) 
         <View>
           <Text style={styles.inputLabel}>Base URL (tuỳ chọn)</Text>
           <TextInput
+            editable={!saving}
             style={styles.input}
             value={formBaseUrl}
             onChangeText={setFormBaseUrl}
@@ -140,6 +157,7 @@ export function ModelForm({ id, onClose }: { id: string; onClose: () => void }) 
         <View>
           <Text style={styles.inputLabel}>{isNew ? "API Key (*)" : "API Key (để trống nếu giữ nguyên)"}</Text>
           <TextInput
+            editable={!saving}
             style={styles.input}
             value={formApiKey}
             onChangeText={setFormApiKey}
@@ -152,7 +170,7 @@ export function ModelForm({ id, onClose }: { id: string; onClose: () => void }) 
           {!isNew ? <Text style={styles.hint}>Chỉ nhập khi muốn đổi khóa. App không đọc được key cũ đã lưu.</Text> : null}
         </View>
 
-        <Pressable style={styles.verifyBtn} onPress={handleTest} disabled={keyTest.state === "loading"}>
+        <Pressable style={styles.verifyBtn} onPress={handleTest} disabled={saving || keyTest.state === "loading"}>
           <Text style={styles.verifyBtnText}>{keyTest.state === "loading" ? "Đang kiểm tra..." : "Kiểm tra kết nối"}</Text>
         </Pressable>
         {keyTest.state === "ok" || keyTest.state === "fail" ? (
@@ -162,11 +180,12 @@ export function ModelForm({ id, onClose }: { id: string; onClose: () => void }) 
         <Text style={styles.hint}>Server sẽ gọi thử model trước khi lưu. Thất bại thì báo lỗi và không lưu.</Text>
 
         <View style={styles.modalBtnsRow}>
-          <Pressable style={styles.cancelBtn} onPress={onClose}>
+          <Pressable style={styles.cancelBtn} disabled={saving} onPress={onClose}>
             <Text style={styles.cancelBtnText}>Hủy</Text>
           </Pressable>
-          <Pressable style={styles.saveBtn} onPress={handleSave}>
-            <Text style={styles.saveBtnText}>Lưu Model</Text>
+          <Pressable style={styles.saveBtn} disabled={saving || keyTest.state === "loading"} onPress={handleSave}>
+            {saving ? <ActivityIndicator /> : null}
+            <Text style={styles.saveBtnText}>{saving ? "Đang lưu..." : "Lưu Model"}</Text>
           </Pressable>
         </View>
       </ScrollView>
