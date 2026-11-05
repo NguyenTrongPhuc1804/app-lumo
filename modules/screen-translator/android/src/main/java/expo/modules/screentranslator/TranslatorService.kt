@@ -1,5 +1,6 @@
 package expo.modules.screentranslator
 
+import android.animation.ValueAnimator
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -10,10 +11,12 @@ import android.content.pm.ServiceInfo
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.PixelFormat
 import android.graphics.Rect
 import android.graphics.RectF
+import android.graphics.SweepGradient
 import android.graphics.drawable.GradientDrawable
 import android.hardware.display.DisplayManager
 import android.hardware.display.VirtualDisplay
@@ -31,6 +34,7 @@ import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
+import android.view.animation.LinearInterpolator
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -98,6 +102,7 @@ class TranslatorService : Service() {
   private lateinit var widgetParams: WindowManager.LayoutParams
   private var overlay: FrameLayout? = null
   private var selectionView: SelectionView? = null
+  private var glowView: GlowView? = null // lop sang luc cho server dich
 
   // Trang thai lam viec
   private var isBusy = false
@@ -169,6 +174,7 @@ class TranslatorService : Service() {
     handler.removeCallbacksAndMessages(null)
     overlay?.let { windowManager.removeView(it) }
     selectionView?.let { windowManager.removeView(it) }
+    hideGlow()
     widget?.let { windowManager.removeView(it) }
     virtualDisplay?.release()
     imageReader?.close()
@@ -495,6 +501,7 @@ class TranslatorService : Service() {
   // Ket thuc mot lan dich: bat lai nut noi va lop phu
   private fun finishWork() {
     isBusy = false
+    hideGlow()
     mainButton?.text = "L"
     widget?.visibility = View.VISIBLE
     overlay?.visibility = View.VISIBLE
@@ -619,7 +626,34 @@ class TranslatorService : Service() {
       }
   }
 
+  // Hien lop sang o mep duoi man hinh luc cho server. Chi hien khi dich tay, che do tu dong chay moi 3 giay se nhap nhay.
+  private fun showGlow() {
+    if (autoMode || glowView != null) return
+    val view = GlowView(this)
+    val params = WindowManager.LayoutParams(
+      captureWidth,
+      captureHeight,
+      WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+      WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+        WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
+        WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+      PixelFormat.TRANSLUCENT
+    )
+    params.gravity = Gravity.TOP or Gravity.START
+    windowManager.addView(view, params)
+    glowView = view
+  }
+
+  private fun hideGlow() {
+    glowView?.let {
+      it.stop()
+      windowManager.removeView(it)
+    }
+    glowView = null
+  }
+
   private fun translateAndDraw(bitmap: Bitmap, boxes: List<Rect>, texts: List<String>) {
+    showGlow()
     networkExecutor.execute {
       try {
         val translated = callServer(texts)
@@ -734,6 +768,76 @@ class TranslatorService : Service() {
     widget?.let {
       windowManager.removeView(it)
       windowManager.addView(it, widgetParams)
+    }
+  }
+}
+
+// Dai mau (xanh duong, tim, do hong, xanh la) quay quanh 4 vien man hinh, dam sat mep roi tan dan vao trong.
+// THU NGHIEM cach B: SweepGradient quay quanh tam. Chi ve, khong nhan cham. Goi stop() truoc khi go khoi WindowManager.
+class GlowView(context: Context) : View(context) {
+
+  // Dau va cuoi cung mau de dai mau noi lien thanh vong
+  private val colors = intArrayOf(
+    Color.parseColor("#4285F4"),
+    Color.parseColor("#9B72F2"),
+    Color.parseColor("#EA4C6B"),
+    Color.parseColor("#34A853"),
+    Color.parseColor("#4285F4")
+  )
+  private val paint = Paint().apply {
+    isAntiAlias = true
+    style = Paint.Style.STROKE
+  }
+  private val matrix = Matrix()
+  private var sweep: SweepGradient? = null
+  private val density = resources.displayMetrics.density
+  // progress 0 -> 1 lap lai lien tuc, moi khoi troi lech pha nhau
+  private var progress = 0f
+  // fade 0 -> 1: lop mau hien dan len luc moi bat
+  private var fade = 0f
+
+  private val animator = ValueAnimator.ofFloat(0f, 1f).apply {
+    duration = 5000
+    repeatCount = ValueAnimator.INFINITE
+    interpolator = LinearInterpolator()
+    addUpdateListener { progress = it.animatedValue as Float; invalidate() }
+  }
+  private val fadeAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
+    duration = 700
+    addUpdateListener { fade = it.animatedValue as Float }
+  }
+
+  init {
+    animator.start()
+    fadeAnimator.start()
+  }
+
+  fun stop() {
+    animator.cancel()
+    fadeAnimator.cancel()
+  }
+
+  override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+    // Tam gradient dat giua man hinh de dai mau quay deu quanh 4 canh
+    sweep = SweepGradient(w / 2f, h / 2f, colors, null)
+  }
+
+  override fun onDraw(canvas: Canvas) {
+    if (width == 0) return
+    val shader = sweep ?: return
+    // Xoay gradient quanh tam theo progress
+    matrix.setRotate(progress * 360f, width / 2f, height / 2f)
+    shader.setLocalMatrix(matrix)
+    paint.shader = shader
+
+    // Ve 12 vien long nhau: vien ngoai cung dam nhat, cang vao trong cang mo, tao do tan mem
+    val layers = 12
+    val step = 5f * density
+    for (i in 0 until layers) {
+      val inset = step * i
+      paint.strokeWidth = step * 2f
+      paint.alpha = ((1f - i.toFloat() / layers) * 80 * fade).toInt()
+      canvas.drawRect(inset, inset, width - inset, height - inset, paint)
     }
   }
 }
