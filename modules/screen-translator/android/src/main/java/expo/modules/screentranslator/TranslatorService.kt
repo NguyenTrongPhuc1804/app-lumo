@@ -17,6 +17,7 @@ import android.graphics.PixelFormat
 import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.SweepGradient
+import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.GradientDrawable
 import android.hardware.display.DisplayManager
 import android.hardware.display.VirtualDisplay
@@ -272,6 +273,10 @@ class TranslatorService : Service() {
   // ---------- Nut noi + thanh cong cu ----------
 
   private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
+
+  // Do sang cua 1 mau (0 = den, 255 = trang)
+  private fun brightnessOf(color: Int): Double =
+    0.299 * Color.red(color) + 0.587 * Color.green(color) + 0.114 * Color.blue(color)
 
   // Tao mot nut tron nho trong thanh cong cu
   private fun menuButton(iconRes: Int, description: String, onClick: () -> Unit): ImageView {
@@ -563,6 +568,8 @@ class TranslatorService : Service() {
         val joiner = if (sourceLang == "zh" || sourceLang == "ja") "" else " "
         val boxes = ArrayList<Rect>()
         val texts = ArrayList<String>()
+        // Chieu cao trung binh 1 dong chu goc (pixel), dung de chon co chu ban dich
+        val lineHeights = ArrayList<Int>()
         for (block in result.textBlocks) {
           val rect = block.boundingBox ?: continue
           val text = block.text.replace("\n", joiner).trim()
@@ -572,6 +579,15 @@ class TranslatorService : Service() {
           box.offset(offsetX, offsetY)
           boxes.add(box)
           texts.add(text)
+
+          var totalHeight = 0
+          var lineCount = 0
+          for (line in block.lines) {
+            val lineBox = line.boundingBox ?: continue
+            totalHeight += lineBox.height()
+            lineCount++
+          }
+          lineHeights.add(if (lineCount > 0) totalHeight / lineCount else rect.height())
         }
 
         // Gop cac khoi o gan nhau (thuong la cung mot bong thoai) thanh mot khoi lon
@@ -587,8 +603,11 @@ class TranslatorService : Service() {
               if (Rect.intersects(nearArea, boxes[j])) {
                 boxes[i].union(boxes[j])
                 texts[i] = texts[i] + joiner + texts[j]
+                // Gop khoi thi lay dong chu nho hon de chu dich khong bi tran
+                lineHeights[i] = min(lineHeights[i], lineHeights[j])
                 boxes.removeAt(j)
                 texts.removeAt(j)
+                lineHeights.removeAt(j)
                 merged = true
                 break@mergeLoop
               }
@@ -613,7 +632,7 @@ class TranslatorService : Service() {
         }
         lastAutoKey = key
 
-        translateAndDraw(bitmap, boxes, texts)
+        translateAndDraw(bitmap, boxes, texts, lineHeights)
       }
       .addOnFailureListener {
         toast("Không đọc được chữ")
@@ -652,13 +671,13 @@ class TranslatorService : Service() {
     glowView = null
   }
 
-  private fun translateAndDraw(bitmap: Bitmap, boxes: List<Rect>, texts: List<String>) {
+  private fun translateAndDraw(bitmap: Bitmap, boxes: List<Rect>, texts: List<String>, lineHeights: List<Int>) {
     showGlow()
     networkExecutor.execute {
       try {
         val translated = callServer(texts)
         handler.post {
-          drawOverlay(bitmap, boxes, translated)
+          drawOverlay(bitmap, boxes, translated, lineHeights)
           bitmap.recycle()
           finishWork()
         }
@@ -701,46 +720,52 @@ class TranslatorService : Service() {
 
   // ---------- Ve lop phu ----------
 
-  private fun drawOverlay(bitmap: Bitmap, boxes: List<Rect>, translated: List<String>) {
+  private fun drawOverlay(bitmap: Bitmap, boxes: List<Rect>, translated: List<String>, lineHeights: List<Int>) {
     // Thay ban dich cu (neu co) bang ban dich moi
     clearOverlay()
     val root = FrameLayout(this)
 
     for (i in boxes.indices) {
-      // Noi rong o che ra mot chut de che het net chu OCR doc sot o mep
+      // Noi rong o che 2dp de che het net chu o mep, khong noi qua nhieu de khoi lem sang hinh ve
       val rect = Rect(boxes[i])
-      val padding = max(dp(4), rect.height() / 6)
+      val padding = dp(2)
       rect.inset(-padding, -padding)
       rect.intersect(0, 0, bitmap.width, bitmap.height)
       if (rect.width() < 2 || rect.height() < 2) continue
 
-      // Lay mau nen: doc 8 diem sat mep ngoai o che (4 goc + 4 giua canh),
-      // chon mau xuat hien nhieu nhat. Mau duoc lam tron de cac mau gan giong nhau tinh chung.
-      val right = rect.right - 1
-      val bottom = rect.bottom - 1
-      val centerX = rect.centerX()
-      val centerY = rect.centerY()
-      val xs = intArrayOf(rect.left, centerX, right, rect.left, right, rect.left, centerX, right)
-      val ys = intArrayOf(rect.top, rect.top, rect.top, centerY, centerY, bottom, bottom, bottom)
-      val colorCount = HashMap<Int, Int>()
-      for (k in xs.indices) {
-        val pixel = bitmap.getPixel(xs[k].coerceIn(0, bitmap.width - 1), ys[k].coerceIn(0, bitmap.height - 1))
-        val rounded = pixel and 0xFFF0F0F0.toInt()
-        colorCount[rounded] = (colorCount[rounded] ?: 0) + 1
+      // Lay 8 diem mau ngay ngoai o che: 4 diem phia tren, 4 diem phia duoi.
+      // Lay ngoai o nen khong dinh net chu goc.
+      val topY = (rect.top - 1).coerceIn(0, bitmap.height - 1)
+      val bottomY = rect.bottom.coerceIn(0, bitmap.height - 1)
+      val small = Bitmap.createBitmap(4, 2, Bitmap.Config.ARGB_8888)
+      var totalBrightness = 0.0
+      for (k in 0 until 4) {
+        val x = (rect.left + rect.width() * k / 3).coerceIn(0, bitmap.width - 1)
+        val topColor = bitmap.getPixel(x, topY) or 0xFF000000.toInt()
+        val bottomColor = bitmap.getPixel(x, bottomY) or 0xFF000000.toInt()
+        small.setPixel(k, 0, topColor)
+        small.setPixel(k, 1, bottomColor)
+        totalBrightness += brightnessOf(topColor) + brightnessOf(bottomColor)
       }
-      val background = (colorCount.maxByOrNull { it.value }?.key ?: Color.WHITE) or 0xFF000000.toInt()
+      // Phong to anh 4x2 len bang o che, bat loc muot -> nen chuyen mau dan theo xung quanh
+      val scaled = Bitmap.createScaledBitmap(small, rect.width(), rect.height(), true)
+      small.recycle()
 
       // Nen sang thi chu den, nen toi thi chu trang
-      val brightness = 0.299 * Color.red(background) + 0.587 * Color.green(background) + 0.114 * Color.blue(background)
+      val darkText = totalBrightness / 8 > 140
 
       val textView = TextView(this)
       textView.text = translated[i]
-      textView.setBackgroundColor(background)
-      textView.setTextColor(if (brightness > 140) Color.BLACK else Color.WHITE)
+      textView.background = BitmapDrawable(resources, scaled)
+      textView.setTextColor(if (darkText) Color.BLACK else Color.WHITE)
+      // Vien mo nguoc mau de chu khong bi chim tren nen game
+      textView.setShadowLayer(dp(2).toFloat(), 0f, 0f, if (darkText) Color.WHITE else Color.BLACK)
       textView.gravity = Gravity.CENTER
-      textView.setPadding(dp(2), dp(1), dp(2), dp(1))
-      // Tu thu nho chu cho vua khung
-      TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(textView, 10, 24, 1, TypedValue.COMPLEX_UNIT_SP)
+      textView.setPadding(dp(2), 0, dp(2), 0)
+      // Co chu toi da bang chieu cao dong chu goc, ban dich dai hon thi tu thu nho lai
+      val maxPx = max(lineHeights[i], 2)
+      val minPx = min(dp(8), maxPx - 1)
+      TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(textView, minPx, maxPx, 1, TypedValue.COMPLEX_UNIT_PX)
 
       val params = FrameLayout.LayoutParams(maxOf(rect.width(), 1), maxOf(rect.height(), 1))
       params.leftMargin = rect.left
