@@ -1,8 +1,12 @@
-import { useState } from "react";
-import { Alert, Modal, Pressable, ScrollView, Text, View } from "react-native";import { LANGS, labelOf, startTranslator, stopTranslator } from "../lib/api";
+import { useEffect, useState } from "react";
+import { Alert, Modal, Pressable, ScrollView, Text, View } from "react-native";
+import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withSpring, withTiming } from "react-native-reanimated";
+import { LANGS, labelOf, startTranslator, stopTranslator } from "../lib/api";
 import { useSettings } from "../lib/settings";
 import { ACCENT, styles } from "../lib/theme";
 import ScreenTranslator from "../modules/screen-translator";
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 // Mot dong "ten - hanh dong" trong cac khoi huong dan
 function GestureRow({ name, action, last }: { name: string; action: string; last?: boolean }) {
@@ -30,6 +34,23 @@ export default function HomePanel({ onManageModels }: { onManageModels: () => vo
     hasOverlayPermission,
   } = useSettings();
   const [pickerFor, setPickerFor] = useState<"source" | "target" | "model" | null>(null);
+
+  // Hieu ung: nut tron co lai khi nhan, phap phong khi dang bat; nut doi ngon ngu xoay 180 do
+  const pressScale = useSharedValue(1);
+  const pulse = useSharedValue(1);
+  const swapRotation = useSharedValue(0);
+
+  useEffect(() => {
+    pulse.value = running ? withRepeat(withTiming(1.06, { duration: 900 }), -1, true) : withTiming(1);
+  }, [running]);
+
+  const startCircleStyle = useAnimatedStyle(() => ({ transform: [{ scale: pressScale.value * pulse.value }] }));
+  const swapStyle = useAnimatedStyle(() => ({ transform: [{ rotate: `${swapRotation.value}deg` }] }));
+
+  const handleSwap = () => {
+    swapRotation.value = withSpring(swapRotation.value + 180);
+    swapLanguages();
+  };
 
   // Nut tron lon: bat hoac tat widget dich
   const handleToggle = async () => {
@@ -67,14 +88,16 @@ export default function HomePanel({ onManageModels }: { onManageModels: () => vo
     <>
       {/* Khoi bat dau */}
       <View style={styles.card}>
-        <Pressable
-          style={[styles.startCircle, running && styles.startCircleOn]}
+        <AnimatedPressable
+          style={[styles.startCircle, running && styles.startCircleOn, startCircleStyle]}
           accessibilityRole="button"
           accessibilityLabel={running ? "Tắt nút dịch nổi" : "Bật nút dịch nổi"}
+          onPressIn={() => (pressScale.value = withSpring(0.9))}
+          onPressOut={() => (pressScale.value = withSpring(1))}
           onPress={handleToggle}
         >
           <Text style={styles.startIcon}>{running ? "■" : "文A"}</Text>
-        </Pressable>
+        </AnimatedPressable>
         <Text style={styles.centerText}>
           {running ? "Nút dịch đang bật. Nhấn để tắt." : "Nhấn để bắt đầu [Nút dịch nổi]."}
         </Text>
@@ -90,8 +113,8 @@ export default function HomePanel({ onManageModels }: { onManageModels: () => vo
               <Text style={styles.langButtonText}>{labelOf(sourceLang)} ▾</Text>
             </Pressable>
           </View>
-          <Pressable style={styles.swapButton} accessibilityRole="button" accessibilityLabel="Hoán đổi ngôn ngữ" onPress={swapLanguages}>
-            <Text style={styles.swapText}>⇄</Text>
+          <Pressable style={styles.swapButton} accessibilityRole="button" accessibilityLabel="Hoán đổi ngôn ngữ" onPress={handleSwap}>
+            <Animated.Text style={[styles.swapText, swapStyle]}>⇄</Animated.Text>
           </Pressable>
           <View style={styles.langColumn}>
             <Text style={styles.langCaption}>Của tôi</Text>
