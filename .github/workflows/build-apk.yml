@@ -50,7 +50,7 @@ jobs:
           npx tsc --noEmit
 
       - name: Generate Android project
-        run: npx expo prebuild --platform android --no-install --npm
+        run: npx expo prebuild --platform android --no-install
 
       # shortcut: Expo's bundled debug key is for testing only; replace with private signing before publishing.
       - name: Check test signing configuration
