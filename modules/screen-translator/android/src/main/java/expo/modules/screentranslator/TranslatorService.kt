@@ -102,6 +102,9 @@ class TranslatorService : Service() {
   private var menu: LinearLayout? = null
   private lateinit var widgetParams: WindowManager.LayoutParams
   private var overlay: FrameLayout? = null
+  private val overlayBitmaps = ArrayList<Bitmap>()
+  @Volatile private var destroyed = false
+  private val pendingPatches = ArrayList<OverlayPatch>()
   private var selectionView: SelectionView? = null
   private var glowView: GlowView? = null // lop sang luc cho server dich
 
@@ -170,10 +173,15 @@ class TranslatorService : Service() {
   }
 
   override fun onDestroy() {
+    synchronized(pendingPatches) {
+      destroyed = true
+      pendingPatches.forEach { it.bitmap.recycle() }
+      pendingPatches.clear()
+    }
     isRunning = false
     autoMode = false
     handler.removeCallbacksAndMessages(null)
-    overlay?.let { windowManager.removeView(it) }
+    clearOverlay()
     selectionView?.let { windowManager.removeView(it) }
     hideGlow()
     widget?.let { windowManager.removeView(it) }
@@ -436,6 +444,8 @@ class TranslatorService : Service() {
   private fun clearOverlay() {
     overlay?.let { windowManager.removeView(it) }
     overlay = null
+    for (bitmap in overlayBitmaps) bitmap.recycle()
+    overlayBitmaps.clear()
   }
 
   // Dich toan man hinh. Neu dang hien ban dich thi bam de tat di.
@@ -676,13 +686,51 @@ class TranslatorService : Service() {
     networkExecutor.execute {
       try {
         val translated = callServer(texts)
-        handler.post {
-          drawOverlay(bitmap, boxes, translated, lineHeights)
-          bitmap.recycle()
-          finishWork()
+        require(translated.size == boxes.size) { "Số bản dịch không khớp số ô OCR" }
+        val patches = ArrayList<OverlayPatch>()
+        val rects = ArrayList<Rect>()
+        val heights = ArrayList<Int>()
+        val labels = ArrayList<String>()
+        try {
+          for (i in boxes.indices) {
+            if (destroyed) break
+            val rect = Rect(boxes[i])
+            rect.inset(-dp(2), -dp(2))
+            if (!rect.intersect(0, 0, bitmap.width, bitmap.height) || rect.width() < 2 || rect.height() < 2) continue
+            val crop = Bitmap.createBitmap(bitmap, rect.left, rect.top, rect.width(), rect.height())
+            try {
+              patches.add(OverlayImageProcessor.prepare(crop))
+            } finally {
+              if (crop !== bitmap) crop.recycle()
+            }
+            rects.add(rect)
+            heights.add(lineHeights[i])
+            labels.add(translated[i])
+          }
+        } catch (e: Exception) {
+          patches.forEach { it.bitmap.recycle() }
+          throw e
+        }
+        bitmap.recycle()
+        synchronized(pendingPatches) {
+          if (destroyed) {
+            patches.forEach { it.bitmap.recycle() }
+          } else {
+            pendingPatches.addAll(patches)
+            handler.post {
+              synchronized(pendingPatches) { pendingPatches.clear() }
+              drawOverlay(rects, labels, heights, patches)
+              finishWork()
+            }
+          }
         }
       } catch (e: Exception) {
+        if (destroyed) {
+          bitmap.recycle()
+          return@execute
+        }
         handler.post {
+          if (destroyed) return@post
           // Loi server thi dung dich tu dong, tranh bao loi lien tuc moi 3 giay
           stopAuto()
           toast("Dịch lỗi: ${e.message}")
@@ -720,46 +768,21 @@ class TranslatorService : Service() {
 
   // ---------- Ve lop phu ----------
 
-  private fun drawOverlay(bitmap: Bitmap, boxes: List<Rect>, translated: List<String>, lineHeights: List<Int>) {
+  private fun drawOverlay(boxes: List<Rect>, translated: List<String>, lineHeights: List<Int>, patches: List<OverlayPatch>) {
     // Thay ban dich cu (neu co) bang ban dich moi
     clearOverlay()
     val root = FrameLayout(this)
 
     for (i in boxes.indices) {
-      // Noi rong o che 2dp de che het net chu o mep, khong noi qua nhieu de khoi lem sang hinh ve
-      val rect = Rect(boxes[i])
-      val padding = dp(2)
-      rect.inset(-padding, -padding)
-      rect.intersect(0, 0, bitmap.width, bitmap.height)
-      if (rect.width() < 2 || rect.height() < 2) continue
-
-      // Lay 8 diem mau ngay ngoai o che: 4 diem phia tren, 4 diem phia duoi.
-      // Lay ngoai o nen khong dinh net chu goc.
-      val topY = (rect.top - 1).coerceIn(0, bitmap.height - 1)
-      val bottomY = rect.bottom.coerceIn(0, bitmap.height - 1)
-      val small = Bitmap.createBitmap(4, 2, Bitmap.Config.ARGB_8888)
-      var totalBrightness = 0.0
-      for (k in 0 until 4) {
-        val x = (rect.left + rect.width() * k / 3).coerceIn(0, bitmap.width - 1)
-        val topColor = bitmap.getPixel(x, topY) or 0xFF000000.toInt()
-        val bottomColor = bitmap.getPixel(x, bottomY) or 0xFF000000.toInt()
-        small.setPixel(k, 0, topColor)
-        small.setPixel(k, 1, bottomColor)
-        totalBrightness += brightnessOf(topColor) + brightnessOf(bottomColor)
-      }
-      // Phong to anh 4x2 len bang o che, bat loc muot -> nen chuyen mau dan theo xung quanh
-      val scaled = Bitmap.createScaledBitmap(small, rect.width(), rect.height(), true)
-      small.recycle()
-
-      // Nen sang thi chu den, nen toi thi chu trang
-      val darkText = totalBrightness / 8 > 140
-
-      val textView = TextView(this)
+      val rect = boxes[i]
+      val patch = patches[i]
+      overlayBitmaps.add(patch.bitmap)
+      val textView = StrokedTextView(this)
       textView.text = translated[i]
-      textView.background = BitmapDrawable(resources, scaled)
-      textView.setTextColor(if (darkText) Color.BLACK else Color.WHITE)
-      // Vien mo nguoc mau de chu khong bi chim tren nen game
-      textView.setShadowLayer(dp(2).toFloat(), 0f, 0f, if (darkText) Color.WHITE else Color.BLACK)
+      textView.background = BitmapDrawable(resources, patch.bitmap)
+      textView.setTextColor(patch.textColor)
+      textView.strokeColor = if (brightnessOf(patch.textColor) > 128) Color.BLACK else Color.WHITE
+      textView.strokeWidthPx = max(1f, resources.displayMetrics.density * 0.75f)
       textView.gravity = Gravity.CENTER
       textView.setPadding(dp(2), 0, dp(2), 0)
       // Co chu toi da bang chieu cao dong chu goc, ban dich dai hon thi tu thu nho lai

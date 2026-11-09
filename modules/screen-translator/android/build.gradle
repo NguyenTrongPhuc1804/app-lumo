@@ -8,7 +8,14 @@ version = '1.0.0'
 
 android {
   namespace "expo.modules.screentranslator"
+  packagingOptions {
+    jniLibs.pickFirsts += ['**/libc++_shared.so']
+  }
+  testOptions {
+    unitTests.includeAndroidResources = true
+  }
   defaultConfig {
+    testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
     versionCode 1
     versionName '1.0.0'
   }
@@ -16,6 +23,11 @@ android {
 
 dependencies {
   implementation 'androidx.core:core-ktx:1.15.0'
+  implementation 'org.opencv:opencv:4.12.0'
+  androidTestImplementation 'androidx.test:runner:1.6.2'
+  androidTestImplementation 'androidx.test.ext:junit:1.2.1'
+  testImplementation 'junit:junit:4.13.2'
+  testImplementation 'org.robolectric:robolectric:4.14.1'
 
   // OCR chay tren may (model di kem app). Moi thu tieng dung mot thu vien rieng.
   implementation 'com.google.mlkit:text-recognition:16.0.1'          // Latin (Anh, Viet, Phap...)
