@@ -1,15 +1,22 @@
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { useSettings } from "../lib/settings";
-import { TEXT_MUTED, styles } from "../lib/theme";
+import { ACCENT, TEXT_MUTED, styles } from "../lib/theme";
+import StitchIcon from "./StitchIcon";
+
 import ScreenTranslator from "../modules/screen-translator";
 
 export default function SettingsPanel() {
   const { serverUrl, setServerUrl, adminKey, setAdminKey, hasOverlayPermission, reloadModels, modelsLoading, modelsError } = useSettings();
 
   return (
-    <ScrollView contentContainerStyle={styles.content}>
+    <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Quyền hiển thị trên ứng dụng khác</Text>
+        <Text style={styles.pageTitle}>Cài đặt hệ thống</Text>
+        <Text style={styles.hint}>Quản lý quyền, kết nối và cấu hình quản trị.</Text>
+      </View>
+      <View style={styles.card}>
+        <Text style={styles.sectionTitle}>Quyền hệ thống</Text>
+        <View style={styles.iconLabel}><StitchIcon name="layers" color={ACCENT} /><Text style={[styles.sectionTitle, { flex: 1 }]}>Hiển thị trên ứng dụng khác</Text></View>
         {hasOverlayPermission ? (
           <Text style={styles.ok}>Đã cấp quyền</Text>
         ) : (
@@ -20,7 +27,8 @@ export default function SettingsPanel() {
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Địa chỉ server</Text>
+        <Text style={styles.caption}>Kết nối</Text>
+        <View style={styles.iconLabel}><StitchIcon name="dns" color={ACCENT} /><Text style={styles.sectionTitle}>Địa chỉ server</Text></View>
         <TextInput
           style={styles.input}
           value={serverUrl}
@@ -35,11 +43,17 @@ export default function SettingsPanel() {
         />
         {modelsLoading ? <View style={styles.rowBetween}><ActivityIndicator /><Text style={styles.hint}>Đang tải danh sách model...</Text></View> : null}
         {modelsError ? <View><Text style={styles.hint}>{modelsError}</Text><Pressable disabled={modelsLoading} onPress={reloadModels}><Text style={styles.actionBtnText}>Thử lại</Text></Pressable></View> : null}
-        <Text style={styles.hint}>Máy ảo Android dùng 10.0.2.2. Điện thoại thật dùng IP máy tính trong cùng mạng Wi-Fi.</Text>
+        <Pressable style={styles.secondaryButton} accessibilityRole="button" disabled={modelsLoading} onPress={reloadModels}>
+          <View style={styles.iconLabel}><StitchIcon name="speed" size={20} color={ACCENT} /><Text style={styles.secondaryButtonText}>{modelsLoading ? "Đang kiểm tra..." : "Kiểm tra kết nối"}</Text></View>
+        </Pressable>
+        <View style={styles.infoBox}>
+          <Text style={styles.hint}>Máy ảo Android dùng 10.0.2.2. Điện thoại thật dùng IP máy tính trong cùng mạng Wi-Fi.</Text>
+        </View>
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Khoá quản trị (ADMIN_KEY)</Text>
+        <Text style={styles.caption}>Quản trị</Text>
+        <View style={styles.iconLabel}><StitchIcon name="key" color={ACCENT} /><Text style={[styles.sectionTitle, { flex: 1 }]}>Khoá quản trị (ADMIN_KEY)</Text></View>
         <TextInput
           style={styles.input}
           value={adminKey}

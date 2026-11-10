@@ -3,10 +3,12 @@
   "version": "1.0.0",
   "main": "expo-router/entry",
   "dependencies": {
+    "@expo-google-fonts/be-vietnam-pro": "^0.4.1",
     "@react-native-async-storage/async-storage": "2.2.0",
     "expo": "~58.0.22",
     "expo-build-properties": "~58.0.12",
     "expo-dev-client": "~58.0.18",
+    "expo-linear-gradient": "~58.0.3",
     "expo-linking": "~58.0.15",
     "expo-modules-core": "~58.0.29",
     "expo-router": "~58.0.29",

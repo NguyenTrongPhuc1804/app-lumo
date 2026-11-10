@@ -6,12 +6,13 @@ import { ModelForm } from "../../components/ModelForm";
 import ModelsPanel from "../../components/ModelsPanel";
 import SettingsPanel from "../../components/SettingsPanel";
 import { useSettings } from "../../lib/settings";
-import { styles } from "../../lib/theme";
+import { ACCENT_ON, TEXT_MUTED, styles } from "../../lib/theme";
+import StitchIcon, { StitchIconName } from "../../components/StitchIcon";
 
-const TABS = [
-  { key: "home", icon: "⌂", label: "Trang chủ" },
-  { key: "models", icon: "⚡", label: "Model AI" },
-  { key: "settings", icon: "⚙", label: "Cài đặt" },
+const TABS: { key: string; icon: StitchIconName; label: string }[] = [
+  { key: "home", icon: "explore", label: "Trang chủ" },
+  { key: "models", icon: "memory", label: "Model AI" },
+  { key: "settings", icon: "tune", label: "Cài đặt" },
 ];
 
 // Header + noi dung tab + thanh tab duoi. Them/sua model dung Modal ngay trong tab.
@@ -83,13 +84,13 @@ export default function TabsLayout() {
           return (
             <Pressable
               key={item.key}
-              style={styles.tabItem}
+              style={[styles.tabItem, active && styles.tabItemActive]}
               accessibilityRole="tab"
               accessibilityState={{ selected: active }}
               onPress={() => setTab(item.key)}
             >
-              <Text style={[styles.tabIcon, active && styles.tabActive]}>{item.icon}</Text>
-              <Text style={[styles.tabLabel, active && styles.tabActive]}>{item.label}</Text>
+              <StitchIcon name={item.icon} size={23} color={active ? ACCENT_ON : TEXT_MUTED} />
+              <Text style={[styles.tabLabel, active && styles.tabSelected]}>{item.label}</Text>
             </Pressable>
           );
         })}

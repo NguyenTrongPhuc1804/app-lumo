@@ -6,8 +6,8 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "dark",
-    "backgroundColor": "#0B1F1D",
+    "userInterfaceStyle": "light",
+    "backgroundColor": "#F8FAFC",
     "plugins": [
       [
         "expo-build-properties",
@@ -24,7 +24,7 @@
     "android": {
       "package": "com.lumolens.app",
       "adaptiveIcon": {
-        "backgroundColor": "#14B8A6",
+        "backgroundColor": "#059669",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"

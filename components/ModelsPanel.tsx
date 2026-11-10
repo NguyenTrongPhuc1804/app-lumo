@@ -2,7 +2,8 @@ import { useCallback } from "react";
 import { ActivityIndicator, Alert, Pressable, Text, View } from "react-native";
 import { useFocusEffect } from "expo-router";
 import { useSettings } from "../lib/settings";
-import { styles } from "../lib/theme";
+import { ACCENT, ACCENT_ON, DANGER, TEXT_DIM, styles } from "../lib/theme";
+import StitchIcon from "./StitchIcon";
 
 export default function ModelsPanel({ onOpenForm }: { onOpenForm: (id: string) => void }) {
   const { adminKey, model, customModels, setModel, reloadModels, reloadAdminModels, adminModelsLoading, adminModelsError, deletingIds, removeModel } = useSettings();
@@ -35,19 +36,19 @@ export default function ModelsPanel({ onOpenForm }: { onOpenForm: (id: string) =
       {/* Header quan ly model */}
       <View style={styles.card}>
         <View style={styles.rowBetween}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.sectionTitle}>Quản lý Model AI</Text>
+          <View style={{ flex: 1, gap: 4 }}>
+            <Text style={styles.pageTitle}>Model AI</Text>
             <Text style={styles.hint}>Tự cấu hình Base URL và API Key riêng cho từng model</Text>
           </View>
           <Pressable style={styles.primaryBtn} accessibilityRole="button" onPress={() => onOpenForm("new")}>
-            <Text style={styles.primaryBtnText}>+ Thêm Model</Text>
+            <View style={styles.iconLabel}><StitchIcon name="add" size={18} color={ACCENT_ON} /><Text style={styles.primaryBtnText}>Thêm Model</Text></View>
           </Pressable>
         </View>
       </View>
 
       {/* Danh sach model tren server */}
       <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Model trên server</Text>
+        <View style={styles.iconLabel}><StitchIcon name="dns" color={ACCENT} /><Text style={styles.sectionTitle}>Model trên server</Text></View>
         {adminModelsLoading ? (
           <View style={styles.rowBetween}>
             <ActivityIndicator />
@@ -90,7 +91,7 @@ export default function ModelsPanel({ onOpenForm }: { onOpenForm: (id: string) =
 
                 <View style={styles.modelActionsRow}>
                   <Pressable style={styles.actionBtn} disabled={isDeleting} accessibilityRole="button" onPress={() => onOpenForm(item.id)}>
-                    <Text style={styles.actionBtnText}>✏ Sửa</Text>
+                    <View style={styles.iconLabel}><StitchIcon name="edit" size={18} color={TEXT_DIM} /><Text style={styles.actionBtnText}>Sửa</Text></View>
                   </Pressable>
                   <Pressable
                     style={[styles.actionBtn, styles.actionBtnAccent]}
@@ -98,11 +99,13 @@ export default function ModelsPanel({ onOpenForm }: { onOpenForm: (id: string) =
                     disabled={isDeleting}
                     onPress={() => setModel(item.code)}
                   >
-                    <Text style={styles.actionBtnAccentText}>✓ Dùng</Text>
+                    <View style={styles.iconLabel}><StitchIcon name="check" size={18} color={ACCENT_ON} /><Text style={styles.actionBtnAccentText}>Dùng</Text></View>
                   </Pressable>
                   <Pressable style={styles.actionBtnDanger} disabled={isDeleting} accessibilityRole="button" onPress={() => handleDelete(item.id, item.name)}>
-                    {isDeleting ? <ActivityIndicator /> : null}
-                    <Text style={styles.actionBtnDangerText}>{isDeleting ? "Đang xóa..." : "✕ Xóa"}</Text>
+                    <View style={styles.iconLabel}>
+                      {isDeleting ? <ActivityIndicator /> : <StitchIcon name="delete" size={18} color={DANGER} />}
+                      <Text style={styles.actionBtnDangerText}>{isDeleting ? "Đang xóa..." : "Xóa"}</Text>
+                    </View>
                   </Pressable>
                 </View>
               </View>
@@ -113,7 +116,7 @@ export default function ModelsPanel({ onOpenForm }: { onOpenForm: (id: string) =
 
       {/* Model he thong ma server tra ve cho app */}
       <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Model hệ thống</Text>
+        <View style={styles.iconLabel}><StitchIcon name="memory" color={ACCENT} /><Text style={styles.sectionTitle}>Model hệ thống</Text></View>
         <Text style={styles.hint}>Model server đang bật cho app chọn, cấu hình key nằm trên server.</Text>
       </View>
     </>

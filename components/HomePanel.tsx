@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
+import { LinearGradient } from "expo-linear-gradient";
 import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, Text, View } from "react-native";
 import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withSpring, withTiming } from "react-native-reanimated";
 import { LANGS, labelOf, startTranslator, stopTranslator } from "../lib/api";
 import { useSettings } from "../lib/settings";
-import { ACCENT, styles } from "../lib/theme";
+import { ACCENT, TEXT_DIM, styles } from "../lib/theme";
+import StitchIcon from "./StitchIcon";
 import ScreenTranslator from "../modules/screen-translator";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -74,7 +76,7 @@ export default function HomePanel({ onManageModels }: { onManageModels: () => vo
       return;
     }
 
-    const granted = await startTranslator({ serverUrl, sourceLang, targetLang, model, accentColor: ACCENT });
+    const granted = await startTranslator({ serverUrl, sourceLang, targetLang, model, accentColor: "#BDB5FF" });
     if (granted) {
       setRunning(true);
     } else {
@@ -89,73 +91,82 @@ export default function HomePanel({ onManageModels }: { onManageModels: () => vo
 
   return (
     <>
-      {/* Khoi bat dau */}
-      <View style={styles.card}>
+      {/* Khoi bat dau dich: khoi lon nhat, mau nhan */}
+      <View style={styles.startHero}>
+        <Text style={styles.heroTitle}>Dịch màn hình</Text>
         <AnimatedPressable
-          style={[styles.startCircle, running && styles.startCircleOn, startCircleStyle]}
+          style={[styles.lensTrigger, startCircleStyle]}
           accessibilityRole="button"
           accessibilityLabel={running ? "Tắt nút dịch nổi" : "Bật nút dịch nổi"}
-          onPressIn={() => (pressScale.value = withSpring(0.9))}
+          onPressIn={() => (pressScale.value = withSpring(0.97))}
           onPressOut={() => (pressScale.value = withSpring(1))}
           onPress={handleToggle}
         >
-          <Text style={styles.startIcon}>{running ? "■" : "文A"}</Text>
+          <LinearGradient colors={["#10B981", "#38BDF8"]} start={{ x: 0, y: 1 }} end={{ x: 1, y: 0 }} style={styles.lensRing}>
+            <View style={styles.lensFace}>
+              <LinearGradient colors={["#10B981", "#059669"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.lensCore}>
+                <StitchIcon name={running ? "crop_free" : "play_arrow"} size={32} color="#FFFFFF" />
+              </LinearGradient>
+            </View>
+          </LinearGradient>
         </AnimatedPressable>
-        <Text style={styles.centerText}>
-          {running ? "Nút dịch đang bật. Nhấn để tắt." : "Nhấn để bắt đầu [Nút dịch nổi]."}
+        <Text style={styles.lensActionLabel}>{running ? "DỪNG LENS" : "BẬT LENS"}</Text>
+        <Text style={styles.lensStatus}>{running ? "Nút dịch đang bật • Sẵn sàng quét" : "Nút dịch đang tắt"}</Text>
+        <Text style={styles.heroText}>
+          {running ? "Mở ứng dụng bạn muốn dịch, rồi nhấn đúp nút nổi." : "Bật nút nổi, rồi mở ứng dụng bạn muốn dịch."}
         </Text>
-        {!hasOverlayPermission ? <Text style={styles.warning}>Chưa cấp quyền hiển thị trên ứng dụng khác</Text> : null}
       </View>
+      {!hasOverlayPermission ? (
+        <View style={styles.card}>
+          <Text style={styles.warning}>Chưa cấp quyền hiển thị trên ứng dụng khác</Text>
+          <Pressable style={styles.secondaryButton} accessibilityRole="button" onPress={() => ScreenTranslator.openOverlaySettings()}>
+            <Text style={styles.secondaryButtonText}>Mở cài đặt để cấp quyền</Text>
+          </Pressable>
+        </View>
+      ) : null}
 
       {/* Khoi chon ngon ngu */}
-      <View style={styles.card}>
+      <View style={styles.bentoRow}>
+      <View style={styles.bentoTile}>
+        <View style={styles.iconLabel}><StitchIcon name="translate" color={ACCENT} /><Text style={styles.sectionTitle}>Cặp ngôn ngữ</Text></View>
         <View style={styles.langRow}>
           <View style={styles.langColumn}>
             <Text style={styles.langCaption}>Nguồn</Text>
             <Pressable style={styles.langButton} accessibilityRole="button" onPress={() => setPickerFor("source")}>
-              <Text style={styles.langButtonText}>{labelOf(sourceLang)} ▾</Text>
+              <View style={styles.iconLabel}><Text style={styles.langButtonText}>{labelOf(sourceLang)}</Text><StitchIcon name="expand_more" size={18} color={TEXT_DIM} /></View>
             </Pressable>
           </View>
           <Pressable style={styles.swapButton} accessibilityRole="button" accessibilityLabel="Hoán đổi ngôn ngữ" onPress={handleSwap}>
-            <Animated.Text style={[styles.swapText, swapStyle]}>⇄</Animated.Text>
+            <Animated.View style={swapStyle}><StitchIcon name="sync_alt" color={ACCENT} /></Animated.View>
           </Pressable>
           <View style={styles.langColumn}>
-            <Text style={styles.langCaption}>Của tôi</Text>
+            <Text style={styles.langCaption}>Dịch sang</Text>
             <Pressable style={styles.langButton} accessibilityRole="button" onPress={() => setPickerFor("target")}>
-              <Text style={styles.langButtonText}>{labelOf(targetLang)} ▾</Text>
+              <View style={styles.iconLabel}><Text style={styles.langButtonText}>{labelOf(targetLang)}</Text><StitchIcon name="expand_more" size={18} color={TEXT_DIM} /></View>
             </Pressable>
           </View>
         </View>
       </View>
 
-      {/* Khoi chon model dich */}
-      <View style={styles.card}>
-        <Text style={styles.langCaption}>Công cụ dịch</Text>
+      {/* Khoi chon model dich: thay ten model dang dung ngay tren khoi */}
+      <View style={styles.bentoTile}>
+        <View style={styles.iconLabel}><StitchIcon name="memory" color={ACCENT} /><Text style={styles.sectionTitle}>Model AI</Text></View>
         {modelsLoading ? <View style={styles.rowBetween}><ActivityIndicator /><Text style={styles.hint}>Đang tải danh sách...</Text></View> : null}
         {modelsError ? <Text style={styles.hint}>{modelsError}</Text> : null}
-        <Pressable style={styles.langButton} accessibilityRole="button" accessibilityLabel="Chọn model dịch" onPress={() => setPickerFor("model")}>
-          <Text style={styles.langButtonText}>{currentModelName} ▾</Text>
+        <Text style={styles.langPairValue}>{currentModelName}</Text>
+        <Pressable style={styles.secondaryButton} accessibilityRole="button" accessibilityLabel="Chọn model dịch" onPress={() => setPickerFor("model")}>
+          <Text style={styles.secondaryButtonText}>Chọn model khác</Text>
         </Pressable>
         {running ? <Text style={styles.hint}>Tắt rồi bật lại nút dịch để áp dụng model mới.</Text> : null}
       </View>
-
-      {/* Khoi huong dan cu chi, giong muc "Hanh dong" cua app goc */}
-      <View style={styles.card}>
-        <Text style={styles.sectionTitle}>[Nút dịch nổi] Hành động</Text>
-        <GestureRow name="Nhấn một lần" action="Mở thanh công cụ" />
-        <GestureRow name="Nhấn đúp" action="Dịch toàn màn hình" />
-        <GestureRow name="Nhấn giữ" action="Dịch khu vực" />
-        <GestureRow name="Kéo nút" action="Di chuyển nút" last />
       </View>
 
-      {/* Khoi giai thich thanh cong cu */}
+      {/* Khoi huong dan cu chi, rut gon hien thi ban dau */}
       <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Thanh công cụ</Text>
-        <GestureRow name="Dịch toàn màn hình" action="Chụp và dịch tất cả chữ" />
-        <GestureRow name="Dịch tự động" action="Tự dịch lại mỗi 3 giây" />
-        <GestureRow name="Dịch khu vực cố định" action="Nhấn giữ để chọn lại vùng" />
-        <GestureRow name="Dịch khu vực" action="Kéo để chọn vùng cần dịch" />
-        <GestureRow name="Tắt nút dịch" action="Đóng nút nổi" last />
+        <Text style={styles.sectionTitle}>Nút dịch nổi hoạt động thế nào</Text>
+        <GestureRow name="Nhấn đúp" action="Dịch toàn màn hình" />
+        <GestureRow name="Nhấn giữ" action="Chọn vùng để dịch" />
+        <GestureRow name="Nhấn một lần" action="Mở thanh công cụ" last />
       </View>
 
       {/* Hop chon ngon ngu hoac model */}
@@ -184,7 +195,7 @@ export default function HomePanel({ onManageModels }: { onManageModels: () => vo
                         }}
                       >
                         <Text style={[styles.modalItemText, selected && styles.tabActive]}>{m.label}</Text>
-                        {selected ? <Text style={styles.tabActive}>✓</Text> : null}
+                        {selected ? <StitchIcon name="check" size={20} color={ACCENT} /> : null}
                       </Pressable>
                     );
                   })}
@@ -197,7 +208,7 @@ export default function HomePanel({ onManageModels }: { onManageModels: () => vo
                     onManageModels();
                   }}
                 >
-                  <Text style={styles.manageQuickText}>⚙ Thêm / Quản lý Model AI riêng ›</Text>
+                  <View style={styles.iconLabel}><StitchIcon name="tune" size={20} color={ACCENT} /><Text style={[styles.manageQuickText, { flex: 1 }]}>Thêm / Quản lý Model AI riêng</Text><StitchIcon name="chevron_right" size={20} color={ACCENT} /></View>
                 </Pressable>
               </>
             ) : (
@@ -215,7 +226,7 @@ export default function HomePanel({ onManageModels }: { onManageModels: () => vo
                     }}
                   >
                     <Text style={[styles.modalItemText, selected && styles.tabActive]}>{lang.label}</Text>
-                    {selected ? <Text style={styles.tabActive}>✓</Text> : null}
+                    {selected ? <StitchIcon name="check" size={20} color={ACCENT} /> : null}
                   </Pressable>
                 );
               })
