@@ -21,6 +21,9 @@ expo-env.d.ts
 # Metro
 .metro-health-check*
 
+# APK build/test artifacts (keep local, do not commit)
+*.apk
+
 # debug
 npm-debug.*
 yarn-debug.*
