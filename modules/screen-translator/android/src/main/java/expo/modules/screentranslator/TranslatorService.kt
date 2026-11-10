@@ -494,6 +494,10 @@ class TranslatorService : Service() {
     clearOverlay()
 
     val view = SelectionView(this, accentColor) { selected ->
+      // SelectionView tra ve toa do cuc bo; chuyen sang toa do anh chup truoc khi OCR.
+      val origin = IntArray(2)
+      selectionView?.getLocationOnScreen(origin)
+      selected?.offset(origin[0], origin[1])
       selectionView?.let { windowManager.removeView(it) }
       selectionView = null
       if (selected != null) {
@@ -771,7 +775,7 @@ class TranslatorService : Service() {
   private fun drawOverlay(boxes: List<Rect>, translated: List<String>, lineHeights: List<Int>, patches: List<OverlayPatch>) {
     // Thay ban dich cu (neu co) bang ban dich moi
     clearOverlay()
-    val root = FrameLayout(this)
+    val root = ScreenOverlayLayout(this)
 
     for (i in boxes.indices) {
       val rect = boxes[i]
@@ -793,7 +797,7 @@ class TranslatorService : Service() {
       val params = FrameLayout.LayoutParams(maxOf(rect.width(), 1), maxOf(rect.height(), 1))
       params.leftMargin = rect.left
       params.topMargin = rect.top
-      root.addView(textView, params)
+      root.screenContent.addView(textView, params)
     }
 
     // Khoa man hinh khi dich: lop phu nuot cu cham nen app ben duoi khong cuon duoc, ban dich khong bi lech.
