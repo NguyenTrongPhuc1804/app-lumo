@@ -28,6 +28,8 @@ export default function HomePanel({ onManageModels }: { onManageModels: () => vo
     sourceLang,
     targetLang,
     model,
+    translationMode,
+    setTranslationMode,
     modelList,
     customModels,
     setModel,
@@ -78,7 +80,7 @@ export default function HomePanel({ onManageModels }: { onManageModels: () => vo
       return;
     }
 
-    const granted = await startTranslator({ serverUrl, sourceLang, targetLang, model, accentColor: "#BDB5FF" });
+    const granted = await startTranslator({ serverUrl, sourceLang, targetLang, model, mode: translationMode, accentColor: "#BDB5FF" });
     if (granted) {
       setRunning(true);
     } else {
@@ -126,6 +128,25 @@ export default function HomePanel({ onManageModels }: { onManageModels: () => vo
           </Pressable>
         </View>
       ) : null}
+
+      <View style={styles.card}>
+        <Text allowFontScaling={false} style={styles.sectionTitle}>Chế độ dịch</Text>
+        <View style={[styles.bentoRow, { marginTop: 12 }]}>
+          {(["game", "manga"] as const).map((mode) => (
+            <Pressable key={mode} accessibilityRole="radio" accessibilityState={{ checked: translationMode === mode }}
+              onPress={() => setTranslationMode(mode)}
+              style={[styles.secondaryButton, { flex: 1, borderColor: translationMode === mode ? ACCENT : TEXT_DIM, borderWidth: translationMode === mode ? 2 : 1 }]}>
+              <View style={styles.iconLabel}>
+                <StitchIcon name={mode === "game" ? "speed" : "layers"} color={ACCENT} size={20} />
+                <Text allowFontScaling={false} style={styles.secondaryButtonText}>{mode === "game" ? "Game" : "Truyện"}</Text>
+              </View>
+            </Pressable>
+          ))}
+        </View>
+        <Text allowFontScaling={false} style={[styles.heroText, { marginTop: 10 }]}>
+          {translationMode === "game" ? "Ưu tiên tốc độ, không dùng lịch sử dịch." : "Dùng ngữ cảnh gần nhất để hỗ trợ dịch liền mạch. Ngữ cảnh chỉ giữ trong phiên widget."}
+        </Text>
+      </View>
 
       {/* Khoi chon ngon ngu */}
       <View style={styles.bentoRow}>

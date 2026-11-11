@@ -22,6 +22,7 @@ class StartOptions : Record {
   @Field val targetLang: String = "vi"
   @Field val accentColor: String = "#14B8A6"
   @Field val model: String = ""
+  @Field val mode: String = "game"
 }
 
 // Cau noi giua JS va code Android: xin quyen, bat/tat service
@@ -67,6 +68,12 @@ class ScreenTranslatorModule : Module() {
       activity.startActivityForResult(manager.createScreenCaptureIntent(), REQUEST_CAPTURE)
     }
 
+    Function("updateConfig") { options: StartOptions ->
+      android.os.Handler(android.os.Looper.getMainLooper()).post {
+        TranslatorService.instance?.updateConfig(options.mode, options.sourceLang, options.targetLang, options.model)
+      }
+    }
+
     Function("stop") {
       context.stopService(Intent(context, TranslatorService::class.java))
     }
@@ -94,6 +101,7 @@ class ScreenTranslatorModule : Module() {
         .putExtra("targetLang", options.targetLang)
         .putExtra("accentColor", options.accentColor)
         .putExtra("model", options.model)
+        .putExtra("mode", options.mode)
       ContextCompat.startForegroundService(context, intent)
       promise?.resolve(true)
     }

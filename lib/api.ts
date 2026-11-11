@@ -74,6 +74,7 @@ export async function deleteModel(serverUrl: string, adminKey: string, id: strin
 
 // Bat/tat nut dich noi. Tra ve true neu da bat.
 export async function startTranslator(config: {
+  mode?: "game" | "manga";
   serverUrl: string;
   sourceLang: string;
   targetLang: string;

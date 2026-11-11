@@ -20,13 +20,13 @@ Spec: approved design and detailed seven-task plan in this conversation, 2026-11
 - Manga duplicate texts retain position and count.
 
 ## Tasks
-- [ ] Task 1: MangaContext with snapshots, deduplication, eviction and clear; JUnit RED then GREEN.
-- [ ] Task 2: backend validation, Manga cache bypass and contextual prompt; Node RED then GREEN.
-- [ ] Task 3: mode settings and native updateConfig bridge; configuration invalidation tests.
-- [ ] Task 4: connect context snapshots and valid result commits to all translation paths.
-- [ ] Task 5: Manga-only clear button, stale work invalidation and scrollable menu.
-- [ ] Task 6: explicit title detection twice consecutively, nonblocking confirmation and dismissal memory.
-- [ ] Task 7: HomePanel mode selector, integration tests, TypeScript and release builds.
+- [x] Task 1: MangaContext with snapshots, deduplication, eviction and clear; JUnit RED then GREEN.
+- [x] Task 2: backend validation, Manga cache bypass and contextual prompt; Node RED then GREEN.
+- [x] Task 3: mode settings and native updateConfig bridge; configuration invalidation tests.
+- [x] Task 4: connect context snapshots and valid result commits to all translation paths.
+- [x] Task 5: Manga-only clear button, stale work invalidation and scrollable menu.
+- [x] Task 6: explicit title detection twice consecutively, nonblocking confirmation and dismissal memory.
+- [x] Task 7: HomePanel mode selector, integration tests, TypeScript and release builds.
 
 Each task: failing behavioral tests, minimal implementation, passing suite, scoped commit.
 Verification: server npm test; mobile npm test and npx tsc --noEmit; Android :screen-translator:testDebugUnitTest, :screen-translator:assembleRelease, :app:assembleRelease.

@@ -1,0 +1,37 @@
+const { test } = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const vm = require('node:vm');
+const ts = require('typescript');
+
+test('HomePanel selects Manga and starts with selected mode', async () => {
+  const settings = { translationMode: 'game', model: 'test', modelList: [], customModels: [], serverUrl: 'http://local', sourceLang: 'en', targetLang: 'vi', hasOverlayPermission: true };
+  settings.setTranslationMode = value => settings.translationMode = value;
+  settings.setRunning = value => settings.running = value;
+  let started;
+  const exports = {};
+  const source = ts.transpileModule(fs.readFileSync(require('node:path').join(__dirname, '../components/HomePanel.tsx'), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX } }).outputText;
+  vm.runInNewContext(source, { exports, require: name => {
+    if (name === 'react') return { useEffect() {}, useState: value => [value, () => {}] };
+    if (name === 'react-native') return { Pressable: 'Pressable', View: 'View', Text: 'Text' };
+    if (name === 'react-native-reanimated') return { __esModule: true, default: { createAnimatedComponent: () => 'AnimatedButton' }, useSharedValue: value => ({ value }), useAnimatedStyle: () => ({}) };
+    if (name === '../lib/settings') return { useSettings: () => settings };
+    if (name === '../lib/appearance') return { useAppearance: () => ({ styles: {}, ACCENT: 'green', TEXT_DIM: 'gray' }) };
+    if (name === '../lib/api') return { LANGS: [], labelOf: code => code, startTranslator: async config => { started = config; return true; } };
+    if (name === 'expo-linear-gradient') return { LinearGradient: 'Gradient' };
+    if (name === './StitchIcon' || name === '../modules/screen-translator') return { default: {} };
+    return require(name);
+  } });
+  const walk = node => !node || typeof node !== 'object' ? [] : Array.isArray(node) ? node.flatMap(walk) : [node, ...walk(node.props?.children)];
+  const render = () => walk(exports.default({ onManageModels() {} }));
+  const radios = render().filter(node => node.props?.accessibilityRole === 'radio');
+  assert.equal(radios.length, 2);
+  assert.equal(radios[0].props.accessibilityState.checked, true);
+  radios[1].props.onPress();
+  assert.equal(settings.translationMode, 'manga');
+  const selected = render().filter(node => node.props?.accessibilityRole === 'radio');
+  assert.equal(selected[1].props.accessibilityState.checked, true);
+  await render().find(node => node.type === 'AnimatedButton').props.onPress();
+  assert.equal(started.mode, 'manga');
+  assert.equal(settings.running, true);
+});

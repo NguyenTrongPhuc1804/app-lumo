@@ -70,6 +70,8 @@ class TranslatorService : Service() {
 
   companion object {
     @Volatile var isRunning = false
+    var instance: TranslatorService? = null
+      private set
     private const val CHANNEL_ID = "lumo_lens_channel"
     private const val MAX_BLOCKS = 50
     private const val AUTO_DEBOUNCE_MS = 800L
@@ -88,6 +90,8 @@ class TranslatorService : Service() {
   private var sourceLang = "en"
   private var targetLang = "vi"
   private var model = ""
+  private var mode = "game"
+  private val mangaContext = MangaContext()
   private var accentColor = Color.parseColor("#14B8A6")
 
   // Phan chup man hinh
@@ -101,6 +105,13 @@ class TranslatorService : Service() {
   private var widget: LinearLayout? = null // ca nut tron + thanh cong cu
   private var mainButton: TextView? = null
   private var menu: LinearLayout? = null
+  private var clearContextButton: ImageView? = null
+  private var menuScroll: android.widget.ScrollView? = null
+  private val storyDetector = StoryChangeDetector()
+  private var storyConfirmation: LinearLayout? = null
+  private var keepStoryButton: TextView? = null
+  private var resetStoryButton: TextView? = null
+  private var pendingStoryTitle: String? = null
   private lateinit var widgetParams: WindowManager.LayoutParams
   private var overlay: FrameLayout? = null
   private val overlayBitmaps = ArrayList<Bitmap>()
@@ -120,7 +131,7 @@ class TranslatorService : Service() {
 
   // One callback after interaction, never periodic OCR while idle.
   private val autoRetryRunnable = Runnable {
-    if (!destroyed && !isBusy && autoState.takePending()) startTranslate(null)
+    if (!destroyed && !isBusy && pendingStoryTitle == null && autoState.takePending()) startTranslate(null)
   }
 
   private fun scheduleAutoTranslation() {
@@ -138,6 +149,47 @@ class TranslatorService : Service() {
   private fun isCurrentWork(id: Long, generation: Long?): Boolean =
     !destroyed && id == workId && (generation == null || autoState.isCurrent(generation))
 
+  fun updateConfig(newMode: String, newSourceLang: String, newTargetLang: String, newModel: String) {
+    val safeMode = if (newMode == "manga") "manga" else "game"
+    if (mode == safeMode && sourceLang == newSourceLang && targetLang == newTargetLang && model == newModel) return
+    workId++
+    isBusy = false
+    hideGlow()
+    clearOverlay()
+    mode = safeMode
+    clearContextButton?.visibility = if (mode == "manga") View.VISIBLE else View.GONE
+    sourceLang = newSourceLang
+    targetLang = newTargetLang
+    model = newModel
+    mangaContext.clear()
+    storyDetector.clear()
+    hideStoryConfirmation()
+    cachedTranslations = emptyList()
+    if (autoMode) autoState.start()
+    activeAutoGeneration = null
+    widget?.visibility = View.VISIBLE
+    mainButton?.text = "L"
+    scheduleAutoTranslation()
+  }
+
+  fun clearMangaContext() {
+    if (mode != "manga") return
+    workId++
+    isBusy = false
+    activeAutoGeneration = null
+    if (autoMode) autoState.start()
+    mangaContext.clear()
+    storyDetector.clear()
+    hideStoryConfirmation()
+    cachedTranslations = emptyList()
+    clearOverlay()
+    hideGlow()
+    widget?.visibility = View.VISIBLE
+    mainButton?.text = "L"
+    toast("Đã xóa ngữ cảnh truyện")
+    scheduleAutoTranslation()
+  }
+
   override fun onBind(intent: Intent?): IBinder? = null
 
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -146,11 +198,13 @@ class TranslatorService : Service() {
       return START_NOT_STICKY
     }
 
+    instance = this
     serverUrl = intent.getStringExtra("serverUrl")?.trimEnd('/') ?: ""
     appKey = intent.getStringExtra("appKey") ?: ""
     sourceLang = intent.getStringExtra("sourceLang") ?: "en"
     targetLang = intent.getStringExtra("targetLang") ?: "vi"
     model = intent.getStringExtra("model") ?: ""
+    mode = if (intent.getStringExtra("mode") == "manga") "manga" else "game"
     accentColor = Color.parseColor(intent.getStringExtra("accentColor") ?: "#14B8A6")
 
     // Android 14 bat buoc goi startForeground truoc khi lay MediaProjection
@@ -203,6 +257,8 @@ class TranslatorService : Service() {
       pendingPatches.clear()
     }
     isRunning = false
+    if (instance === this) instance = null
+    mangaContext.clear()
     autoState.stop()
     workId++
     handler.removeCallbacksAndMessages(null)
@@ -368,6 +424,10 @@ class TranslatorService : Service() {
     }
     menuLayout.addView(fixedButton)
     menuLayout.addView(menuButton(android.R.drawable.ic_menu_crop, "Dịch khu vực") { startRegionSelect(false) })
+    clearContextButton = menuButton(android.R.drawable.ic_menu_delete, "Xóa ngữ cảnh truyện") { clearMangaContext() }.also {
+      it.visibility = if (mode == "manga") View.VISIBLE else View.GONE
+      menuLayout.addView(it)
+    }
     menuLayout.addView(menuButton(android.R.drawable.ic_menu_close_clear_cancel, "Tắt nút dịch") { stopSelf() })
     menu = menuLayout
 
@@ -375,7 +435,13 @@ class TranslatorService : Service() {
     container.orientation = LinearLayout.VERTICAL
     container.gravity = Gravity.CENTER_HORIZONTAL
     container.addView(main)
-    container.addView(menuLayout)
+    val scroll = android.widget.ScrollView(this)
+    scroll.visibility = View.GONE
+    scroll.addView(menuLayout)
+    menuLayout.visibility = View.VISIBLE
+    scroll.layoutParams = LinearLayout.LayoutParams(dp(68), min(dp(330), resources.displayMetrics.heightPixels / 2))
+    container.addView(scroll)
+    menuScroll = scroll
     widget = container
 
     widgetParams = WindowManager.LayoutParams(
@@ -454,12 +520,56 @@ class TranslatorService : Service() {
   }
 
   private fun toggleMenu() {
-    val layout = menu ?: return
+    val layout = menuScroll ?: return
     layout.visibility = if (layout.visibility == View.VISIBLE) View.GONE else View.VISIBLE
   }
 
   private fun collapseMenu() {
-    menu?.visibility = View.GONE
+    menuScroll?.visibility = View.GONE
+  }
+
+  private fun hideStoryConfirmation() {
+    storyConfirmation?.let { widget?.removeView(it) }
+    storyConfirmation = null
+    pendingStoryTitle = null
+  }
+
+  private fun showStoryConfirmation(title: String) {
+    if (pendingStoryTitle != null || mode != "manga") return
+    collapseMenu()
+    pendingStoryTitle = title
+    val panel = LinearLayout(this)
+    panel.orientation = LinearLayout.VERTICAL
+    panel.setPadding(dp(10), dp(10), dp(10), dp(10))
+    panel.setBackgroundColor(Color.parseColor("#E612302D"))
+    val message = TextView(this)
+    message.text = "Có vẻ bạn đã chuyển truyện. Xóa ngữ cảnh cũ?"
+    message.setTextColor(Color.WHITE)
+    panel.addView(message)
+    val reset = TextView(this)
+    reset.text = "Xóa ngữ cảnh"
+    reset.setTextColor(Color.WHITE)
+    reset.setPadding(0, dp(12), 0, dp(12))
+    reset.setOnClickListener {
+      clearMangaContext()
+      storyDetector.accept(title)
+      if (!autoMode) startTranslate(null)
+    }
+    panel.addView(reset)
+    resetStoryButton = reset
+    val keep = TextView(this)
+    keep.text = "Giữ ngữ cảnh"
+    keep.setTextColor(Color.WHITE)
+    keep.setPadding(0, dp(12), 0, dp(12))
+    keep.setOnClickListener {
+      storyDetector.dismiss(title)
+      hideStoryConfirmation()
+      if (autoMode) { autoState.interact(); scheduleAutoTranslation() } else startTranslate(null)
+    }
+    panel.addView(keep)
+    keepStoryButton = keep
+    widget?.addView(panel, LinearLayout.LayoutParams(dp(220), LinearLayout.LayoutParams.WRAP_CONTENT))
+    storyConfirmation = panel
   }
 
   private fun toast(message: String) {
@@ -568,7 +678,7 @@ class TranslatorService : Service() {
 
   // region = null la dich ca man hinh, con lai chi dich trong khung do
   private fun startTranslate(region: Rect?) {
-    if (isBusy || destroyed) return
+    if (isBusy || destroyed || pendingStoryTitle != null) return
     isBusy = true
     val id = ++workId
     val generation = if (autoMode) autoState.generation else null
@@ -724,6 +834,16 @@ class TranslatorService : Service() {
           return@addOnSuccessListener
         }
 
+        if (mode == "manga") {
+          val changedTitle = storyDetector.observe(texts)
+          if (changedTitle != null) {
+            bitmap.recycle()
+            finishWork(id)
+            showStoryConfirmation(changedTitle)
+            return@addOnSuccessListener
+          }
+        }
+
         // Che do tu dong: man hinh khong doi thi giu nguyen ban dich cu, khong goi server
         // Include positions so identical words at a new scroll position are not stale.
         val key = texts.indices.joinToString("|") { "${texts[it]}@${boxes[it].flattenToString()}" }
@@ -772,9 +892,11 @@ class TranslatorService : Service() {
 
   private fun translateAndDraw(bitmap: Bitmap, boxes: List<Rect>, texts: List<String>, lineHeights: List<Int>, id: Long, generation: Long?, key: String, cached: List<String>?) {
     showGlow()
+    val request = buildTranslationRequest(texts)
+    val requestMode = mode
     networkExecutor.execute {
       try {
-        val translated = cached ?: callServer(texts)
+        val translated = cached ?: callServer(request)
         require(translated.size == boxes.size) { "Số bản dịch không khớp số ô OCR" }
         val patches = ArrayList<OverlayPatch>()
         val rects = ArrayList<Rect>()
@@ -810,6 +932,7 @@ class TranslatorService : Service() {
               synchronized(pendingPatches) { pendingPatches.clear() }
               if (isCurrentWork(id, generation)) {
                 drawOverlay(rects, labels, heights, patches)
+                if (requestMode == "manga" && cached == null) mangaContext.append(texts, translated)
                 if (generation != null) {
                   autoState.commit(generation, key)
                   cachedTranslations = translated
@@ -840,12 +963,26 @@ class TranslatorService : Service() {
   }
 
   // Goi POST /api/translate tren server Node.js
-  private fun callServer(texts: List<String>): List<String> {
+  private fun buildTranslationRequest(texts: List<String>): JSONObject {
     val body = JSONObject()
       .put("texts", JSONArray(texts))
       .put("sourceLang", sourceLang)
       .put("targetLang", targetLang)
       .put("model", model)
+      .put("mode", mode)
+    if (mode == "manga") {
+      val context = JSONArray()
+      for (turn in mangaContext.snapshot()) {
+        val pairs = JSONArray()
+        for (pair in turn) pairs.put(JSONObject().put("source", pair.source).put("translation", pair.translation))
+        context.put(pairs)
+      }
+      body.put("context", context)
+    }
+    return body
+  }
+
+  private fun callServer(body: JSONObject): List<String> {
 
     val connection = URL("$serverUrl/api/translate").openConnection() as HttpURLConnection
     connection.requestMethod = "POST"

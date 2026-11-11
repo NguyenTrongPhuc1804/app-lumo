@@ -18,6 +18,8 @@ type Settings = {
   chooseLanguage: (forWhich: "source" | "target", code: string) => void;
   swapLanguages: () => void;
 
+  translationMode: "game" | "manga";
+  setTranslationMode: (value: "game" | "manga") => void;
   model: string;
   setModel: (code: string) => void;
   modelList: { code: string; label: string }[];
@@ -53,6 +55,11 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const [sourceLang, setSourceLang] = useState("en");
   const [targetLang, setTargetLang] = useState("vi");
   const [model, setModel] = useState("");
+  const [translationMode, setTranslationMode] = useState<"game" | "manga">("game");
+
+  useEffect(() => {
+    if (Platform.OS === "android") ScreenTranslator.updateConfig({ mode: translationMode, sourceLang, targetLang, model });
+  }, [translationMode, sourceLang, targetLang, model]);
   const [modelList, setModelList] = useState(DEFAULT_MODELS);
   const [customModels, setCustomModels] = useState<CustomModel[]>([]);
   const [running, setRunning] = useState(false);
@@ -202,6 +209,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         swapLanguages,
         model,
         setModel,
+        translationMode,
+        setTranslationMode,
         modelList,
         customModels,
         reloadModels,
