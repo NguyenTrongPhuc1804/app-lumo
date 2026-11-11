@@ -10,9 +10,9 @@ internal class MangaContext {
 
   fun append(texts: List<String>, translations: List<String>) {
     require(texts.size == translations.size)
-    val existing = turns.flatten().toSet()
+    val existing = turns.flatten().map { it.source }.toSet()
     val pairs = texts.indices.map { ContextPair(texts[it], translations[it]) }
-      .distinct().filter { it !in existing }
+      .filter { it.source.isNotBlank() && it.translation.isNotBlank() && it.source !in existing }.distinctBy { it.source }
     val retained = mutableListOf<ContextPair>()
     var characters = 0
     for (pair in pairs.asReversed()) {

@@ -36,6 +36,14 @@ class MangaContextTest {
     assertEquals(listOf("old", "😀"), context.snapshot().single().map { it.source })
   }
 
+  @Test fun emptyTranslationsAreNotStoredAndRepeatedSourceDoesNotInflateHistory() {
+    val context = MangaContext()
+    context.append(listOf("Hello", "mark"), listOf("Chao", ""))
+    context.append(listOf("Hello"), listOf("Xin chao"))
+    assertEquals(1, context.snapshot().size)
+    assertEquals(listOf(ContextPair("Hello", "Chao")), context.snapshot().single())
+  }
+
   @Test fun rejectsMismatchedTranslationCounts() {
     val context = MangaContext()
     assertThrows(IllegalArgumentException::class.java) { context.append(listOf("a"), emptyList()) }

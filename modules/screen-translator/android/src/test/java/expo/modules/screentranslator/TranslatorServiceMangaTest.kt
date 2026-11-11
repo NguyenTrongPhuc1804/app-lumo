@@ -30,6 +30,20 @@ class TranslatorServiceMangaTest {
     service.onDestroy()
   }
 
+  @Test fun changingSourceReleasesIdleRecognizerAndDefersBusyRecognizerClose() {
+    val service = Robolectric.buildService(TranslatorService::class.java).create().get()
+    field(service, "windowManager").set(service, service.getSystemService("window"))
+    var closed = 0
+    val reader = java.lang.reflect.Proxy.newProxyInstance(javaClass.classLoader, arrayOf(com.google.mlkit.vision.text.TextRecognizer::class.java)) { _, method, _ ->
+      when (method.name) { "close" -> { closed++; null }; "hashCode" -> 123; "equals" -> false; else -> null }
+    } as com.google.mlkit.vision.text.TextRecognizer
+    field(service, "recognizer").set(service, reader)
+    service.updateConfig("manga", "ja", "vi", "test")
+    assertNull(field(service, "recognizer").get(service))
+    assertEquals(1, closed)
+    service.onDestroy()
+  }
+
   @Test fun storyConfirmationKeepsOrClearsHistoryWithoutDisablingAuto() {
     val service = Robolectric.buildService(TranslatorService::class.java).create().get()
     field(service, "windowManager").set(service, service.getSystemService("window"))

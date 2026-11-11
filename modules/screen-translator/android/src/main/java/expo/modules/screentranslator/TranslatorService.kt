@@ -83,6 +83,7 @@ class TranslatorService : Service() {
 
   private lateinit var windowManager: WindowManager
   private var recognizer: TextRecognizer? = null
+  private val activeReaders = mutableMapOf<TextRecognizer, Int>()
 
   // Cau hinh nhan tu JS
   private var serverUrl = ""
@@ -156,6 +157,10 @@ class TranslatorService : Service() {
     isBusy = false
     hideGlow()
     clearOverlay()
+    if (sourceLang != newSourceLang) {
+      recognizer?.let { old -> if ((activeReaders[old] ?: 0) == 0) old.close() }
+      recognizer = null
+    }
     mode = safeMode
     clearContextButton?.visibility = if (mode == "manga") View.VISIBLE else View.GONE
     sourceLang = newSourceLang
@@ -269,7 +274,7 @@ class TranslatorService : Service() {
     virtualDisplay?.release()
     imageReader?.close()
     projection?.stop()
-    recognizer?.close()
+    recognizer?.let { old -> if ((activeReaders[old] ?: 0) == 0) old.close() }
     recognizer = null
     networkExecutor.shutdownNow()
     super.onDestroy()
@@ -768,6 +773,7 @@ class TranslatorService : Service() {
       finishWork(id)
       return
     }
+    activeReaders[reader] = (activeReaders[reader] ?: 0) + 1
     reader.process(InputImage.fromBitmap(cropped, 0))
       .addOnSuccessListener { result ->
         if (!isCurrentWork(id, generation)) {
@@ -859,6 +865,11 @@ class TranslatorService : Service() {
         finishWork(id)
       }
       .addOnCompleteListener {
+        val remaining = (activeReaders[reader] ?: 1) - 1
+        if (remaining == 0) {
+          activeReaders.remove(reader)
+          if (reader !== recognizer) reader.close()
+        } else activeReaders[reader] = remaining
         // Anh cat chi dung de OCR, xong thi giai phong
         if (cropped !== bitmap) cropped.recycle()
       }
