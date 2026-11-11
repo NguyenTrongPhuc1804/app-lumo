@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, ScrollView, Text, TextInput, View } from "react-native";
-import { ACCENT, TEXT_MUTED, styles } from "../lib/theme";
+import { useAppearance } from "../lib/appearance";
 import { useSettings } from "../lib/settings";
 
 // id = "new" thi tao moi, con lai la id model tren server
 export function ModelForm({ id, onClose, saving, onSavingChange }: { id: string; onClose: () => void; saving: boolean; onSavingChange: (value: boolean) => void }) {
+  const { styles, ACCENT, TEXT_MUTED, DANGER } = useAppearance();
   const savingRef = useRef(false);
   const testingRef = useRef(false);
   const { serverUrl, adminKey, customModels, reloadAdminModels, reloadModels, setModel } = useSettings();
@@ -13,6 +14,7 @@ export function ModelForm({ id, onClose, saving, onSavingChange }: { id: string;
 
   const [formName, setFormName] = useState("");
   const [formCode, setFormCode] = useState("");
+  const [formDescription, setFormDescription] = useState("");
   const [formBaseUrl, setFormBaseUrl] = useState("");
   const [formApiKey, setFormApiKey] = useState("");
   const [keyTest, setKeyTest] = useState<{ state: "idle" | "loading" | "ok" | "fail"; msg: string }>({ state: "idle", msg: "" });
@@ -21,6 +23,7 @@ export function ModelForm({ id, onClose, saving, onSavingChange }: { id: string;
   useEffect(() => {
     setFormName(editing?.name ?? "");
     setFormCode(editing?.code ?? "");
+    setFormDescription(editing?.description ?? "");
     setFormBaseUrl(editing?.baseUrl ?? "");
     setFormApiKey("");
     setKeyTest({ state: "idle", msg: "" });
@@ -83,6 +86,7 @@ export function ModelForm({ id, onClose, saving, onSavingChange }: { id: string;
         headers: adminHeaders,
         body: JSON.stringify({
           name: formName.trim(),
+          description: formDescription.trim(),
           code: formCode.trim(),
           baseUrl: formBaseUrl.trim(),
           // Khong gui key rong: server giu nguyen key cu khi khong co apiKey
@@ -110,12 +114,13 @@ export function ModelForm({ id, onClose, saving, onSavingChange }: { id: string;
 
   return (
     <>
-      <Text style={styles.sectionTitle}>{isNew ? "Thêm Model Dịch Mới" : "Chỉnh Sửa Model"}</Text>
+      <Text allowFontScaling={false} style={styles.sectionTitle}>{isNew ? "Thêm Model Dịch Mới" : "Chỉnh Sửa Model"}</Text>
 
       <ScrollView contentContainerStyle={{ gap: 10, paddingVertical: 8 }}>
         <View>
-          <Text style={styles.inputLabel}>Tên hiển thị (*)</Text>
+          <Text allowFontScaling={false} style={styles.inputLabel}>Tên hiển thị (*)</Text>
           <TextInput
+            allowFontScaling={false}
             editable={!saving}
             style={styles.input}
             value={formName}
@@ -126,8 +131,9 @@ export function ModelForm({ id, onClose, saving, onSavingChange }: { id: string;
         </View>
 
         <View>
-          <Text style={styles.inputLabel}>Mã Model ID (*)</Text>
+          <Text allowFontScaling={false} style={styles.inputLabel}>Mã Model ID (*)</Text>
           <TextInput
+            allowFontScaling={false}
             editable={!saving}
             style={styles.input}
             value={formCode}
@@ -140,8 +146,15 @@ export function ModelForm({ id, onClose, saving, onSavingChange }: { id: string;
         </View>
 
         <View>
-          <Text style={styles.inputLabel}>Base URL (tuỳ chọn)</Text>
+          <Text allowFontScaling={false} style={styles.inputLabel}>Mô tả model (tuỳ chọn)</Text>
+          <TextInput allowFontScaling={false} editable={!saving} style={[styles.input, { minHeight: 100, textAlignVertical: "top" }]} value={formDescription} onChangeText={setFormDescription} multiline maxLength={500} placeholder="Điểm mạnh, ngôn ngữ hoặc trường hợp sử dụng…" placeholderTextColor={TEXT_MUTED} accessibilityLabel="Mô tả model" />
+          <Text allowFontScaling={false} style={styles.caption}>{formDescription.length}/500 ký tự</Text>
+        </View>
+
+        <View>
+          <Text allowFontScaling={false} style={styles.inputLabel}>Base URL (tuỳ chọn)</Text>
           <TextInput
+            allowFontScaling={false}
             editable={!saving}
             style={styles.input}
             value={formBaseUrl}
@@ -151,12 +164,13 @@ export function ModelForm({ id, onClose, saving, onSavingChange }: { id: string;
             autoCapitalize="none"
             autoCorrect={false}
           />
-          <Text style={styles.hint}>Để trống nếu dùng Base URL mặc định của server.</Text>
+          <Text allowFontScaling={false} style={styles.hint}>Để trống nếu dùng Base URL mặc định của server.</Text>
         </View>
 
         <View>
-          <Text style={styles.inputLabel}>{isNew ? "API Key (*)" : "API Key (để trống nếu giữ nguyên)"}</Text>
+          <Text allowFontScaling={false} style={styles.inputLabel}>{isNew ? "API Key (*)" : "API Key (để trống nếu giữ nguyên)"}</Text>
           <TextInput
+            allowFontScaling={false}
             editable={!saving}
             style={styles.input}
             value={formApiKey}
@@ -167,25 +181,25 @@ export function ModelForm({ id, onClose, saving, onSavingChange }: { id: string;
             autoCapitalize="none"
             autoCorrect={false}
           />
-          {!isNew ? <Text style={styles.hint}>Chỉ nhập khi muốn đổi khóa. App không đọc được key cũ đã lưu.</Text> : null}
+          {!isNew ? <Text allowFontScaling={false} style={styles.hint}>Chỉ nhập khi muốn đổi khóa. App không đọc được key cũ đã lưu.</Text> : null}
         </View>
 
         <Pressable style={styles.verifyBtn} onPress={handleTest} disabled={saving || keyTest.state === "loading"}>
-          <Text style={styles.verifyBtnText}>{keyTest.state === "loading" ? "Đang kiểm tra..." : "Kiểm tra kết nối"}</Text>
+          <Text allowFontScaling={false} style={styles.verifyBtnText}>{keyTest.state === "loading" ? "Đang kiểm tra..." : "Kiểm tra kết nối"}</Text>
         </Pressable>
         {keyTest.state === "ok" || keyTest.state === "fail" ? (
-          <Text style={[styles.hint, { color: keyTest.state === "ok" ? ACCENT : "#F87171" }]}>{keyTest.msg}</Text>
+          <Text allowFontScaling={false} style={[styles.hint, { color: keyTest.state === "ok" ? ACCENT : DANGER }]}>{keyTest.msg}</Text>
         ) : null}
 
-        <Text style={styles.hint}>Server sẽ gọi thử model trước khi lưu. Thất bại thì báo lỗi và không lưu.</Text>
+        <Text allowFontScaling={false} style={styles.hint}>Server sẽ gọi thử model trước khi lưu. Thất bại thì báo lỗi và không lưu.</Text>
 
         <View style={styles.modalBtnsRow}>
           <Pressable style={styles.cancelBtn} disabled={saving} onPress={onClose}>
-            <Text style={styles.cancelBtnText}>Hủy</Text>
+            <Text allowFontScaling={false} style={styles.cancelBtnText}>Hủy</Text>
           </Pressable>
           <Pressable style={styles.saveBtn} disabled={saving || keyTest.state === "loading"} onPress={handleSave}>
             {saving ? <ActivityIndicator /> : null}
-            <Text style={styles.saveBtnText}>{saving ? "Đang lưu..." : "Lưu Model"}</Text>
+            <Text allowFontScaling={false} style={styles.saveBtnText}>{saving ? "Đang lưu..." : "Lưu Model"}</Text>
           </Pressable>
         </View>
       </ScrollView>

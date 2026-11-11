@@ -1,8 +1,8 @@
 import { Stack, router } from "expo-router";
 import { useEffect, useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, View } from "react-native";
 import { useSettings } from "../lib/settings";
-import { styles } from "../lib/theme";
+import { useAppearance } from "../lib/appearance";
 
 const ONBOARDING = [
   {
@@ -38,6 +38,7 @@ const ONBOARDING = [
 ];
 
 export default function OnboardingScreen() {
+  const { styles } = useAppearance();
   const { onboarded, finishOnboarding } = useSettings();
   const [page, setPage] = useState(0);
   const current = ONBOARDING[page];
@@ -59,21 +60,21 @@ export default function OnboardingScreen() {
   return (
     <View style={styles.container}>
       <Stack.Screen options={{ headerShown: false }} />
-      <View style={styles.onboardBody}>
-        {current.step ? <Text style={styles.stepBadge}>{current.step}</Text> : null}
-        <Text style={styles.onboardTitle}>{current.title}</Text>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.onboardBody}>
+        {current.step ? <Text allowFontScaling={false} style={styles.stepBadge}>{current.step}</Text> : null}
+        <Text allowFontScaling={false} style={styles.onboardTitle}>{current.title}</Text>
         <View style={styles.bulletCard}>
           {current.bullets.map((text) => (
-            <Text key={text} style={styles.bulletText}>
+            <Text allowFontScaling={false} key={text} style={styles.bulletText}>
               {text}
             </Text>
           ))}
         </View>
-      </View>
+      </ScrollView>
 
       <View style={styles.onboardFooter}>
         <Pressable style={styles.skipButton} accessibilityRole="button" onPress={next}>
-          <Text style={styles.skipText}>Bỏ qua</Text>
+          <Text allowFontScaling={false} style={styles.skipText}>Bỏ qua</Text>
         </Pressable>
         <View style={styles.dots}>
           {ONBOARDING.map((item, index) => (
@@ -86,7 +87,7 @@ export default function OnboardingScreen() {
           accessibilityLabel={page === ONBOARDING.length - 1 ? "Bắt đầu" : "Trang tiếp theo"}
           onPress={next}
         >
-          <Text style={styles.nextText}>{page === ONBOARDING.length - 1 ? "✓" : "›"}</Text>
+          <Text allowFontScaling={false} style={styles.nextText}>{page === ONBOARDING.length - 1 ? "✓" : "›"}</Text>
         </Pressable>
       </View>
     </View>

@@ -1,12 +1,13 @@
 import { router, Stack, useFocusEffect } from "expo-router";
 import { useCallback, useRef, useState } from "react";
-import { BackHandler, Modal, Pressable, ScrollView, Text, View } from "react-native";
+import { BackHandler, Image, Modal, Pressable, ScrollView, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import HomePanel from "../../components/HomePanel";
 import { ModelForm } from "../../components/ModelForm";
 import ModelsPanel from "../../components/ModelsPanel";
 import SettingsPanel from "../../components/SettingsPanel";
 import { useSettings } from "../../lib/settings";
-import { ACCENT_ON, TEXT_MUTED, styles } from "../../lib/theme";
+import { useAppearance } from "../../lib/appearance";
 import StitchIcon, { StitchIconName } from "../../components/StitchIcon";
 
 const TABS: { key: string; icon: StitchIconName; label: string }[] = [
@@ -17,6 +18,8 @@ const TABS: { key: string; icon: StitchIconName; label: string }[] = [
 
 // Header + noi dung tab + thanh tab duoi. Them/sua model dung Modal ngay trong tab.
 export default function TabsLayout() {
+  const { styles, ACCENT, ACCENT_ON, TEXT_MUTED } = useAppearance();
+  const insets = useSafeAreaInsets();
   const { onboarded } = useSettings();
   const [tab, setTab] = useState("home");
   const [formId, setFormId] = useState("");
@@ -64,10 +67,17 @@ export default function TabsLayout() {
       <Stack.Screen options={{ headerShown: false }} />
 
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Lumo Lens</Text>
-        <Pressable accessibilityRole="button" accessibilityLabel="Xem lại phần giới thiệu" onPress={() => router.push("/onboarding")}>
-          <Text style={styles.headerHelp}>?</Text>
+        <Pressable style={styles.headerBrand} accessibilityRole="button" accessibilityLabel="Lumo Lens — xem lại giới thiệu" onPress={() => router.push("/onboarding")}>
+          <Image source={require("../../assets/logo.png")} style={styles.brandLogo} resizeMode="contain" />
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text allowFontScaling={false} style={styles.headerTitle}>Lumo Lens</Text>
+            <Text allowFontScaling={false} style={styles.caption}>{tab === "models" ? "Quản lý model AI" : tab === "settings" ? "Tùy chỉnh ứng dụng" : "Dịch màn hình"}</Text>
+          </View>
         </Pressable>
+        <View style={styles.headerActions}>
+          {tab === "models" ? <Pressable style={styles.headerAdd} accessibilityRole="button" accessibilityLabel="Thêm model" onPress={() => openForm("new")}><StitchIcon name="add" size={18} color={ACCENT} /><Text allowFontScaling={false} style={styles.manageQuickText}>Thêm</Text></Pressable> : null}
+          <Pressable style={styles.compactIconButton} accessibilityRole="button" accessibilityLabel="Mở cài đặt" onPress={() => setTab("settings")}><StitchIcon name="tune" size={22} color={TEXT_MUTED} /></Pressable>
+        </View>
       </View>
 
       {tab === "settings" ? (
@@ -78,7 +88,7 @@ export default function TabsLayout() {
         </ScrollView>
       )}
 
-      <View style={styles.tabBar}>
+      <View style={[styles.tabBar, { marginBottom: Math.max(insets.bottom, 12) }]}>
         {TABS.map((item) => {
           const active = tab === item.key;
           return (
@@ -90,7 +100,7 @@ export default function TabsLayout() {
               onPress={() => setTab(item.key)}
             >
               <StitchIcon name={item.icon} size={23} color={active ? ACCENT_ON : TEXT_MUTED} />
-              <Text style={[styles.tabLabel, active && styles.tabSelected]}>{item.label}</Text>
+              <Text allowFontScaling={false} style={[styles.tabLabel, active && styles.tabSelected]}>{item.label}</Text>
             </Pressable>
           );
         })}

@@ -23,11 +23,33 @@ export const RADIUS = 22;
 export const RADIUS_SM = 14;
 export const GAP = 12;
 
-export const styles = StyleSheet.create({
+export function createTheme(dark: boolean, scale: number, width: number) {
+  const ACCENT = dark ? "#34D399" : "#047857";
+  const ACCENT_ON = dark ? "#052E24" : "#FFFFFF";
+  const BACKGROUND = dark ? "#0F172A" : "#F8FAFC";
+  const CARD = dark ? "#182334" : "#FFFFFF";
+  const CARD_ALT = dark ? "#243247" : "#F1F5F9";
+  const BORDER = dark ? "#3B4C63" : "#E2E8F0";
+  const TEXT = dark ? "#F1F5F9" : "#0F172A";
+  const TEXT_DIM = dark ? "#CBD5E1" : "#475569";
+  const TEXT_MUTED = dark ? "#A8B8CC" : "#64748B";
+  const DANGER = dark ? "#FCA5A5" : "#DC2626";
+  const definitions = {
   container: { flex: 1, backgroundColor: BACKGROUND },
+  brandLogo: { width: 40, height: 40, borderRadius: 12 },
+  headerBrand: { flexDirection: "row", alignItems: "center", gap: 9, flex: 1, minWidth: 0 },
+  headerActions: { flexDirection: "row", alignItems: "center", gap: 4 },
+  headerAdd: { minHeight: 48, paddingHorizontal: 12, borderRadius: 18, backgroundColor: dark ? "#123D32" : "#ECFDF5", flexDirection: "row", alignItems: "center", gap: 4 },
+  compactIconButton: { width: 48, minHeight: 48, alignItems: "center", justifyContent: "center" },
+  modelSearch: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: CARD, borderWidth: 1, borderColor: BORDER, borderRadius: 20, paddingHorizontal: 12, minHeight: 52 },
+  modelSearchInput: { flex: 1, minWidth: 0, minHeight: 48, fontSize: 14, fontFamily: FONT, paddingVertical: 10 },
+  modelSummary: { flex: 1, minWidth: 0, minHeight: 48, flexDirection: "row", alignItems: "center", gap: 10 },
+  modelGlyph: { width: 42, height: 42, borderRadius: 14, backgroundColor: CARD_ALT, alignItems: "center", justifyContent: "center" },
+  modelRadio: { width: 24, height: 24, borderRadius: 12, borderWidth: 1, borderColor: BORDER, alignItems: "center", justifyContent: "center" },
+  modelDetails: { borderTopWidth: 1, borderTopColor: BORDER, paddingTop: 12, gap: 10 },
 
   // Man gioi thieu
-  onboardBody: { flex: 1, justifyContent: "center", paddingHorizontal: 20, gap: 20 },
+  onboardBody: { flexGrow: 1, justifyContent: "flex-start", paddingHorizontal: 20, gap: 20 },
   stepBadge: { alignSelf: "center", color: TEXT, backgroundColor: CARD_ALT, paddingVertical: 6, paddingHorizontal: 14, borderRadius: RADIUS_SM, fontSize: 13, fontFamily: FONT_MEDIUM, overflow: "hidden" },
   onboardTitle: { color: TEXT, fontSize: 28, fontFamily: FONT_BOLD, textAlign: "center", lineHeight: 36 },
   bulletCard: { backgroundColor: CARD, borderRadius: RADIUS, padding: 20, gap: 14 },
@@ -49,7 +71,7 @@ export const styles = StyleSheet.create({
   content: { padding: 16, paddingBottom: 24, gap: GAP },
   card: { backgroundColor: CARD, borderRadius: RADIUS, borderColor: BORDER, borderWidth: 1, padding: 18, gap: 10 },
   bentoRow: { flexDirection: "row", flexWrap: "wrap", gap: GAP },
-  bentoTile: { flexGrow: 1, flexBasis: 155, minWidth: 0, backgroundColor: CARD, borderColor: BORDER, borderWidth: 1, borderRadius: RADIUS, padding: 16, gap: 10 },
+  bentoTile: { flexGrow: 1, flexBasis: width < 480 * scale ? "100%" : 200, minWidth: 0, backgroundColor: CARD, borderColor: BORDER, borderWidth: 1, borderRadius: RADIUS, padding: 16, gap: 10 },
   pageTitle: { color: TEXT, fontSize: 24, lineHeight: 32, fontFamily: FONT_BOLD },
   statusBadge: { color: "#047857", backgroundColor: "#ECFDF5", borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6, fontSize: 12, fontFamily: FONT_MEDIUM, overflow: "hidden", alignSelf: "center" },
   infoBox: { backgroundColor: "#F0F9FF", borderRadius: RADIUS_SM, padding: 14, gap: 6 },
@@ -99,8 +121,8 @@ export const styles = StyleSheet.create({
   secondaryButtonText: { color: ACCENT, fontSize: 15, fontFamily: FONT_MEDIUM },
 
   // Thanh tab
-  tabBar: { flexDirection: "row", backgroundColor: CARD, borderColor: BORDER, borderWidth: 1, borderRadius: 36, margin: 16, marginTop: 0, padding: 6 },
-  tabItem: { flex: 1, alignItems: "center", paddingVertical: 8, minHeight: 56, justifyContent: "center", borderRadius: 28, gap: 2 },
+  tabBar: { flexDirection: "row", backgroundColor: CARD, borderColor: BORDER, borderWidth: 1, borderRadius: 36, margin: 16, marginTop: 0, padding: 6, shadowColor: "#0F172A", shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 4 },
+  tabItem: { flex: 1, flexDirection: width < 350 && scale > 1 ? "column" : "row", alignItems: "center", paddingVertical: 10, paddingHorizontal: 4, minHeight: 52, justifyContent: "center", borderRadius: 28, gap: 5 },
   tabItemActive: { backgroundColor: ACCENT },
   tabSelected: { color: ACCENT_ON },
   tabIcon: { color: TEXT_MUTED, fontSize: 20, fontFamily: FONT_MEDIUM },
@@ -115,12 +137,12 @@ export const styles = StyleSheet.create({
 
   // Quan ly model
   iconLabel: { flexDirection: "row", alignItems: "center", gap: 8, flexShrink: 1 },
-  rowBetween: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 10 },
+  rowBetween: { flexWrap: "wrap", flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 10 },
   primaryBtn: { backgroundColor: ACCENT, paddingVertical: 10, paddingHorizontal: 16, borderRadius: RADIUS_SM, minHeight: 48, justifyContent: "center" },
   primaryBtnText: { color: ACCENT_ON, fontFamily: FONT_BOLD, fontSize: 13 },
   emptyText: { color: TEXT_MUTED, fontSize: 13, lineHeight: 18, paddingVertical: 4, fontFamily: FONT },
-  modelCardItem: { backgroundColor: CARD_ALT, borderRadius: RADIUS, padding: 14, gap: 10 },
-  modelCardSelected: { backgroundColor: "#ECFDF5", borderColor: ACCENT, borderWidth: 1 },
+  modelCardItem: { backgroundColor: CARD, borderColor: BORDER, borderWidth: 1, borderRadius: RADIUS, padding: 14, gap: 10 },
+  modelCardSelected: { backgroundColor: CARD, borderColor: ACCENT, borderWidth: 2 },
   modelNameText: { color: TEXT, fontSize: 16, fontFamily: FONT_BOLD },
   modelCodeText: { color: TEXT_MUTED, fontSize: 13, fontFamily: FONT },
   modelUrlText: { color: TEXT_MUTED, fontSize: 12, fontFamily: FONT },
@@ -140,9 +162,27 @@ export const styles = StyleSheet.create({
   modalCardLarge: { backgroundColor: CARD, borderRadius: RADIUS, padding: 20, gap: 8, width: "100%", maxHeight: "85%" },
   verifyBtn: { backgroundColor: CARD_ALT, borderColor: ACCENT, borderWidth: 1, borderRadius: RADIUS_SM, paddingVertical: 12, alignItems: "center", marginTop: 4, minHeight: 48, justifyContent: "center" },
   verifyBtnText: { color: ACCENT, fontSize: 14, fontFamily: FONT_MEDIUM },
-  modalBtnsRow: { flexDirection: "row", justifyContent: "flex-end", gap: 10, marginTop: 8 },
+  modalBtnsRow: { flexWrap: "wrap", flexDirection: "row", justifyContent: "flex-end", gap: 10, marginTop: 8 },
   cancelBtn: { paddingVertical: 12, paddingHorizontal: 18, borderRadius: RADIUS_SM, borderColor: BORDER, borderWidth: 1, minHeight: 48, justifyContent: "center" },
   cancelBtnText: { color: TEXT_DIM, fontSize: 14, fontFamily: FONT_MEDIUM },
   saveBtn: { backgroundColor: ACCENT, paddingVertical: 12, paddingHorizontal: 20, borderRadius: RADIUS_SM, minHeight: 48, justifyContent: "center" },
   saveBtnText: { color: ACCENT_ON, fontSize: 14, fontFamily: FONT_BOLD },
-});
+  } satisfies Parameters<typeof StyleSheet.create>[0];
+  const colors: Record<string, string> = dark ? { "#F8FAFC": "#1E293B", "#ECFDF5": "#123D32", "#047857": "#6EE7B7", "#A7F3D0": "#286652", "#F0F9FF": "#153347", "#D1FAE5": "#164E3D", "#FEF2F2": "#48252D", "#92400E": "#FCD34D" } : {};
+  for (const definition of Object.values(definitions)) {
+    const style = definition as Record<string, unknown>;
+    for (const key of ["color", "backgroundColor", "borderColor"]) {
+      const value = style[key];
+      if (typeof value === "string" && colors[value]) style[key] = colors[value];
+    }
+    if (typeof style.fontSize === "number") {
+      style.fontSize = Math.round(style.fontSize * scale);
+      if (typeof style.lineHeight === "number" && definition !== definitions.headerHelp) style.lineHeight = Math.round(style.lineHeight * scale);
+      style.flexShrink = 1;
+    }
+  }
+  definitions.lensFace.borderColor = BORDER;
+  return { styles: StyleSheet.create(definitions), ACCENT, ACCENT_ON, BACKGROUND, CARD, CARD_ALT, BORDER, TEXT, TEXT_DIM, TEXT_MUTED, DANGER };
+}
+
+export const styles = createTheme(false, 1, 390).styles;

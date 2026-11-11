@@ -5,6 +5,7 @@ export type CustomModel = {
   name: string;
   code: string;
   baseUrl: string;
+  description?: string;
   apiKey: string; // chi con dang che tu server
 };
 
