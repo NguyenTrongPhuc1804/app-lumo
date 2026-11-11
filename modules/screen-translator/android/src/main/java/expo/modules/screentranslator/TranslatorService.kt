@@ -72,14 +72,15 @@ class TranslatorService : Service() {
     @Volatile var isRunning = false
     private const val CHANNEL_ID = "lumo_lens_channel"
     private const val MAX_BLOCKS = 50
-    private const val AUTO_INTERVAL_MS = 3000L
+    private const val AUTO_DEBOUNCE_MS = 800L
+    private const val STABLE_FRAME_DELAY_MS = 350L
   }
 
   private val handler = Handler(Looper.getMainLooper())
   private val networkExecutor = Executors.newSingleThreadExecutor()
 
   private lateinit var windowManager: WindowManager
-  private lateinit var recognizer: TextRecognizer
+  private var recognizer: TextRecognizer? = null
 
   // Cau hinh nhan tu JS
   private var serverUrl = ""
@@ -110,18 +111,32 @@ class TranslatorService : Service() {
 
   // Trang thai lam viec
   private var isBusy = false
-  private var autoMode = false
-  private var lastAutoKey = "" // noi dung lan dich tu dong truoc, de bo qua khi man hinh khong doi
+  private val autoState = AutoTranslationState()
+  private val autoMode get() = autoState.enabled
+  private var workId = 0L
+  private var activeAutoGeneration: Long? = null
+  private var cachedTranslations: List<String> = emptyList()
   private var fixedRect: Rect? = null // khu vuc co dinh da chon
 
-  // Moi 3 giay chup va dich lai man hinh khi dang bat che do tu dong
-  private val autoTick = object : Runnable {
-    override fun run() {
-      if (!autoMode) return
-      startTranslate(null)
-      handler.postDelayed(this, AUTO_INTERVAL_MS)
-    }
+  // One callback after interaction, never periodic OCR while idle.
+  private val autoRetryRunnable = Runnable {
+    if (!destroyed && !isBusy && autoState.takePending()) startTranslate(null)
   }
+
+  private fun scheduleAutoTranslation() {
+    handler.removeCallbacks(autoRetryRunnable)
+    if (autoMode && !destroyed) handler.postDelayed(autoRetryRunnable, AUTO_DEBOUNCE_MS)
+  }
+
+  private fun onAutoInteraction() {
+    if (!autoMode || destroyed) return
+    autoState.interact()
+    clearOverlay()
+    scheduleAutoTranslation()
+  }
+
+  private fun isCurrentWork(id: Long, generation: Long?): Boolean =
+    !destroyed && id == workId && (generation == null || autoState.isCurrent(generation))
 
   override fun onBind(intent: Intent?): IBinder? = null
 
@@ -142,13 +157,6 @@ class TranslatorService : Service() {
     startForegroundWithNotification()
 
     windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
-    recognizer = when (sourceLang) {
-      "zh" -> TextRecognition.getClient(ChineseTextRecognizerOptions.Builder().build())
-      "ja" -> TextRecognition.getClient(JapaneseTextRecognizerOptions.Builder().build())
-      "ko" -> TextRecognition.getClient(KoreanTextRecognizerOptions.Builder().build())
-      else -> TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
-    }
-
     val resultCode = intent.getIntExtra("resultCode", 0)
     val resultData = intent.getParcelableExtra<Intent>("resultData")
     if (resultData == null) {
@@ -172,6 +180,22 @@ class TranslatorService : Service() {
     return START_NOT_STICKY
   }
 
+  override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+    super.onConfigurationChanged(newConfig)
+    if (destroyed) return
+    clearOverlay()
+    if (autoMode) {
+      onAutoInteraction()
+    } else {
+      workId++
+      isBusy = false
+      hideGlow()
+      widget?.visibility = View.VISIBLE
+      mainButton?.text = "L"
+    }
+    if (projection != null) setupCapture()
+  }
+
   override fun onDestroy() {
     synchronized(pendingPatches) {
       destroyed = true
@@ -179,7 +203,8 @@ class TranslatorService : Service() {
       pendingPatches.clear()
     }
     isRunning = false
-    autoMode = false
+    autoState.stop()
+    workId++
     handler.removeCallbacksAndMessages(null)
     clearOverlay()
     selectionView?.let { windowManager.removeView(it) }
@@ -188,7 +213,8 @@ class TranslatorService : Service() {
     virtualDisplay?.release()
     imageReader?.close()
     projection?.stop()
-    recognizer.close()
+    recognizer?.close()
+    recognizer = null
     networkExecutor.shutdownNow()
     super.onDestroy()
   }
@@ -356,9 +382,15 @@ class TranslatorService : Service() {
       WindowManager.LayoutParams.WRAP_CONTENT,
       WindowManager.LayoutParams.WRAP_CONTENT,
       WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-      WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+      WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+        WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+        WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
       PixelFormat.TRANSLUCENT
     )
+    container.setOnTouchListener { _, event ->
+      if (event.actionMasked == MotionEvent.ACTION_OUTSIDE) onAutoInteraction()
+      false
+    }
     widgetParams.gravity = Gravity.TOP or Gravity.START
     widgetParams.x = dp(16)
     widgetParams.y = dp(200)
@@ -437,8 +469,10 @@ class TranslatorService : Service() {
   // ---------- Cac chuc nang cua nut ----------
 
   private fun stopAuto() {
-    autoMode = false
-    handler.removeCallbacks(autoTick)
+    autoState.stop()
+    cachedTranslations = emptyList()
+    handler.removeCallbacks(autoRetryRunnable)
+    clearOverlay()
   }
 
   private fun clearOverlay() {
@@ -451,11 +485,9 @@ class TranslatorService : Service() {
   // Dich toan man hinh. Neu dang hien ban dich thi bam de tat di.
   private fun translateFullScreen() {
     if (isBusy) return
+    val hadOverlay = overlay != null
     stopAuto()
-    if (overlay != null) {
-      clearOverlay()
-      return
-    }
+    if (hadOverlay) return
     startTranslate(null)
   }
 
@@ -474,6 +506,7 @@ class TranslatorService : Service() {
 
   // Bat / tat che do dich tu dong
   private fun toggleAuto() {
+    if (!autoMode && isBusy && activeAutoGeneration == null) return
     if (autoMode) {
       stopAuto()
       clearOverlay()
@@ -481,10 +514,10 @@ class TranslatorService : Service() {
       return
     }
     clearOverlay()
-    autoMode = true
-    lastAutoKey = ""
+    autoState.start()
+    cachedTranslations = emptyList()
     toast("Đã bật dịch tự động")
-    handler.post(autoTick)
+    scheduleAutoTranslation()
   }
 
   // Hien lop phu de nguoi dung keo chon vung. saveAsFixed = true thi luu lai lam khu vuc co dinh.
@@ -518,23 +551,32 @@ class TranslatorService : Service() {
   }
 
   // Ket thuc mot lan dich: bat lai nut noi va lop phu
-  private fun finishWork() {
+  private fun finishWork(id: Long = workId) {
+    if (destroyed || id != workId) return
     isBusy = false
     hideGlow()
     mainButton?.text = "L"
     widget?.visibility = View.VISIBLE
-    overlay?.visibility = View.VISIBLE
+    if (activeAutoGeneration == null || autoState.isCurrent(activeAutoGeneration!!)) {
+      overlay?.visibility = View.VISIBLE
+    }
+    activeAutoGeneration = null
+    scheduleAutoTranslation()
   }
 
   // ---------- Quy trinh dich ----------
 
   // region = null la dich ca man hinh, con lai chi dich trong khung do
   private fun startTranslate(region: Rect?) {
-    if (isBusy) return
+    if (isBusy || destroyed) return
     isBusy = true
+    val id = ++workId
+    val generation = if (autoMode) autoState.generation else null
+    activeAutoGeneration = generation
     mainButton?.text = "..."
     // An nut noi va ban dich cu di de chung khong lot vao anh chup
-    widget?.visibility = View.INVISIBLE
+    // Keep the small widget available in auto mode so outside-touch and stop still work.
+    if (generation == null) widget?.visibility = View.INVISIBLE
     overlay?.visibility = View.INVISIBLE
 
     // Xoay man hinh thi kich thuoc doi, phai cap nhat lai VirtualDisplay
@@ -544,20 +586,45 @@ class TranslatorService : Service() {
       setupCapture()
       delay = 600L
     }
-    handler.postDelayed({ captureAndRead(0, region) }, delay)
+    handler.postDelayed({ captureAndRead(0, region, id, generation) }, delay)
   }
 
   // Thu lay anh toi da 10 lan, giong vong lap thu lai cua app goc
-  private fun captureAndRead(attempt: Int, region: Rect?) {
+  private fun captureAndRead(attempt: Int, region: Rect?, id: Long, generation: Long?, previous: IntArray? = null) {
+    if (!isCurrentWork(id, generation)) {
+      finishWork(id)
+      return
+    }
     val bitmap = grabBitmap()
     if (bitmap == null) {
       if (attempt < 10) {
-        handler.postDelayed({ captureAndRead(attempt + 1, region) }, 150)
+        handler.postDelayed({ captureAndRead(attempt + 1, region, id, generation, previous) }, 150)
       } else {
         toast("Không chụp được màn hình")
         finishWork()
       }
       return
+    }
+
+    if (generation != null) {
+      val sample = IntArray(32 * 32)
+      for (y in 0 until 32) for (x in 0 until 32) {
+        sample[y * 32 + x] = bitmap.getPixel(x * bitmap.width / 32, y * bitmap.height / 32)
+      }
+      val stable = previous != null && sample.indices.count { i ->
+        val a = sample[i]
+        val b = previous[i]
+        abs(Color.red(a) - Color.red(b)) + abs(Color.green(a) - Color.green(b)) + abs(Color.blue(a) - Color.blue(b)) > 45
+      } <= sample.size / 50
+      if (!stable) {
+        bitmap.recycle()
+        if (attempt < 10) {
+          handler.postDelayed({ captureAndRead(attempt + 1, region, id, generation, sample) }, STABLE_FRAME_DELAY_MS)
+        } else {
+          finishWork(id)
+        }
+        return
+      }
     }
 
     // Cat anh theo khung da chon (neu co), khung nam ngoai man hinh thi cat lai cho vua
@@ -576,8 +643,28 @@ class TranslatorService : Service() {
     val offsetX = safeRegion?.left ?: 0
     val offsetY = safeRegion?.top ?: 0
 
-    recognizer.process(InputImage.fromBitmap(cropped, 0))
+    val reader = try {
+      recognizer ?: when (sourceLang) {
+        "zh" -> TextRecognition.getClient(ChineseTextRecognizerOptions.Builder().build())
+        "ja" -> TextRecognition.getClient(JapaneseTextRecognizerOptions.Builder().build())
+        "ko" -> TextRecognition.getClient(KoreanTextRecognizerOptions.Builder().build())
+        else -> TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+      }.also { recognizer = it }
+    } catch (e: Exception) {
+      if (cropped !== bitmap) cropped.recycle()
+      bitmap.recycle()
+      if (generation != null) stopAuto()
+      toast("Không khởi tạo được OCR: ${e.message}")
+      finishWork(id)
+      return
+    }
+    reader.process(InputImage.fromBitmap(cropped, 0))
       .addOnSuccessListener { result ->
+        if (!isCurrentWork(id, generation)) {
+          bitmap.recycle()
+          finishWork(id)
+          return@addOnSuccessListener
+        }
         // Moi block la mot doan van, gom ca vi tri tren man hinh
         val joiner = if (sourceLang == "zh" || sourceLang == "ja") "" else " "
         val boxes = ArrayList<Rect>()
@@ -638,20 +725,18 @@ class TranslatorService : Service() {
         }
 
         // Che do tu dong: man hinh khong doi thi giu nguyen ban dich cu, khong goi server
-        val key = texts.joinToString("|")
-        if (autoMode && key == lastAutoKey) {
-          bitmap.recycle()
-          finishWork()
-          return@addOnSuccessListener
-        }
-        lastAutoKey = key
-
-        translateAndDraw(bitmap, boxes, texts, lineHeights)
+        // Include positions so identical words at a new scroll position are not stale.
+        val key = texts.indices.joinToString("|") { "${texts[it]}@${boxes[it].flattenToString()}" }
+        val cached = if (generation != null && !autoState.shouldTranslate(key)) cachedTranslations else null
+        translateAndDraw(bitmap, boxes, texts, lineHeights, id, generation, key, cached)
       }
       .addOnFailureListener {
-        toast("Không đọc được chữ")
+        if (isCurrentWork(id, generation)) {
+          if (generation != null) stopAuto()
+          toast("Không đọc được chữ")
+        }
         bitmap.recycle()
-        finishWork()
+        finishWork(id)
       }
       .addOnCompleteListener {
         // Anh cat chi dung de OCR, xong thi giai phong
@@ -659,7 +744,7 @@ class TranslatorService : Service() {
       }
   }
 
-  // Hien lop sang o mep duoi man hinh luc cho server. Chi hien khi dich tay, che do tu dong chay moi 3 giay se nhap nhay.
+  // Chi hien lop sang khi dich tay; auto mode giu nut noi de nguoi dung co the dung.
   private fun showGlow() {
     if (autoMode || glowView != null) return
     val view = GlowView(this)
@@ -685,11 +770,11 @@ class TranslatorService : Service() {
     glowView = null
   }
 
-  private fun translateAndDraw(bitmap: Bitmap, boxes: List<Rect>, texts: List<String>, lineHeights: List<Int>) {
+  private fun translateAndDraw(bitmap: Bitmap, boxes: List<Rect>, texts: List<String>, lineHeights: List<Int>, id: Long, generation: Long?, key: String, cached: List<String>?) {
     showGlow()
     networkExecutor.execute {
       try {
-        val translated = callServer(texts)
+        val translated = cached ?: callServer(texts)
         require(translated.size == boxes.size) { "Số bản dịch không khớp số ô OCR" }
         val patches = ArrayList<OverlayPatch>()
         val rects = ArrayList<Rect>()
@@ -723,8 +808,16 @@ class TranslatorService : Service() {
             pendingPatches.addAll(patches)
             handler.post {
               synchronized(pendingPatches) { pendingPatches.clear() }
-              drawOverlay(rects, labels, heights, patches)
-              finishWork()
+              if (isCurrentWork(id, generation)) {
+                drawOverlay(rects, labels, heights, patches)
+                if (generation != null) {
+                  autoState.commit(generation, key)
+                  cachedTranslations = translated
+                }
+              } else {
+                patches.forEach { if (!it.bitmap.isRecycled) it.bitmap.recycle() }
+              }
+              finishWork(id)
             }
           }
         }
@@ -735,11 +828,12 @@ class TranslatorService : Service() {
         }
         handler.post {
           if (destroyed) return@post
-          // Loi server thi dung dich tu dong, tranh bao loi lien tuc moi 3 giay
-          stopAuto()
-          toast("Dịch lỗi: ${e.message}")
-          bitmap.recycle()
-          finishWork()
+          if (isCurrentWork(id, generation)) {
+            stopAuto()
+            toast("Dịch lỗi: ${e.message}")
+          }
+          if (!bitmap.isRecycled) bitmap.recycle()
+          finishWork(id)
         }
       }
     }
@@ -760,14 +854,17 @@ class TranslatorService : Service() {
     connection.connectTimeout = 10000
     connection.readTimeout = 40000
     connection.doOutput = true
-    connection.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
-
-    if (connection.responseCode != 200) {
-      throw Exception("server trả về ${connection.responseCode}")
+    try {
+      connection.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
+      if (connection.responseCode != 200) {
+        throw Exception("server trả về ${connection.responseCode}")
+      }
+      val json = JSONObject(connection.inputStream.bufferedReader().use { it.readText() })
+      val array = json.getJSONArray("translations")
+      return List(array.length()) { array.getString(it) }
+    } finally {
+      connection.disconnect()
     }
-    val json = JSONObject(connection.inputStream.bufferedReader().readText())
-    val array = json.getJSONArray("translations")
-    return List(array.length()) { array.getString(it) }
   }
 
   // ---------- Ve lop phu ----------
@@ -812,6 +909,13 @@ class TranslatorService : Service() {
       PixelFormat.TRANSLUCENT
     )
     overlayParams.gravity = Gravity.TOP or Gravity.START
+    // Android 12+ rejects cross-UID touches under an opaque, untrusted overlay.
+    if (autoMode) {
+      val maxOpacity = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        getSystemService(android.hardware.input.InputManager::class.java).maximumObscuringOpacityForTouch
+      } else 0.8f
+      overlayParams.alpha = min(0.8f, maxOpacity)
+    }
 
     windowManager.addView(root, overlayParams)
     overlay = root
