@@ -25,6 +25,9 @@ test('HomePanel selects Manga and starts with selected mode', async () => {
   const walk = node => !node || typeof node !== 'object' ? [] : Array.isArray(node) ? node.flatMap(walk) : [node, ...walk(node.props?.children)];
   const render = () => walk(exports.default({ onManageModels() {} }));
   const radios = render().filter(node => node.props?.accessibilityRole === 'radio');
+  const modelBox = render().find(node => node.type === 'View' && Array.isArray(node.props?.children) && node.props.children.some(child => child?.props?.accessibilityLabel === 'Chọn model dịch'));
+  assert.ok(modelBox);
+  assert.equal(walk(modelBox).filter(node => node.props?.accessibilityRole === 'radio').length, 2);
   assert.equal(radios.length, 2);
   assert.equal(radios[0].props.accessibilityState.checked, true);
   radios[1].props.onPress();

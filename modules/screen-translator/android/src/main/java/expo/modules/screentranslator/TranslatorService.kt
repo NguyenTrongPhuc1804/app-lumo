@@ -107,6 +107,7 @@ class TranslatorService : Service() {
   private var mainButton: TextView? = null
   private var menu: LinearLayout? = null
   private var clearContextButton: ImageView? = null
+  private var autoTranslateButton: ImageView? = null
   private var menuScroll: android.widget.ScrollView? = null
   private val storyDetector = StoryChangeDetector()
   private var storyConfirmation: LinearLayout? = null
@@ -143,6 +144,7 @@ class TranslatorService : Service() {
   private fun onAutoInteraction() {
     if (!autoMode || destroyed) return
     autoState.interact()
+    hideGlow()
     clearOverlay()
     scheduleAutoTranslation()
   }
@@ -173,7 +175,7 @@ class TranslatorService : Service() {
     if (autoMode) autoState.start()
     activeAutoGeneration = null
     widget?.visibility = View.VISIBLE
-    mainButton?.text = "L"
+    mainButton?.text = ""
     scheduleAutoTranslation()
   }
 
@@ -190,7 +192,7 @@ class TranslatorService : Service() {
     clearOverlay()
     hideGlow()
     widget?.visibility = View.VISIBLE
-    mainButton?.text = "L"
+    mainButton?.text = ""
     toast("Đã xóa ngữ cảnh truyện")
     scheduleAutoTranslation()
   }
@@ -250,7 +252,7 @@ class TranslatorService : Service() {
       isBusy = false
       hideGlow()
       widget?.visibility = View.VISIBLE
-      mainButton?.text = "L"
+      mainButton?.text = ""
     }
     if (projection != null) setupCapture()
   }
@@ -377,14 +379,21 @@ class TranslatorService : Service() {
   private fun menuButton(iconRes: Int, description: String, onClick: () -> Unit): ImageView {
     val button = ImageView(this)
     button.setImageResource(iconRes)
-    button.setColorFilter(Color.WHITE)
+    button.setColorFilter(Color.parseColor("#334155"))
     button.contentDescription = description
-    button.setPadding(dp(10), dp(10), dp(10), dp(10))
-    button.background = GradientDrawable().apply {
-      shape = GradientDrawable.OVAL
-      setColor(Color.parseColor("#2A4A46"))
-    }
-    button.layoutParams = LinearLayout.LayoutParams(dp(44), dp(44)).apply { topMargin = dp(8) }
+    button.setPadding(dp(12), dp(12), dp(12), dp(12))
+    button.background = android.graphics.drawable.RippleDrawable(
+      android.content.res.ColorStateList.valueOf(Color.parseColor("#D1FAE5")),
+      GradientDrawable().apply {
+        cornerRadius = dp(16).toFloat()
+        setColor(Color.WHITE)
+        setStroke(dp(1), Color.parseColor("#E2E8F0"))
+      },
+      null
+    )
+    button.layoutParams = LinearLayout.LayoutParams(dp(44), dp(44)).apply { topMargin = dp(6) }
+    button.isFocusable = true
+    button.tooltipText = description
     button.setOnClickListener {
       collapseMenu()
       onClick()
@@ -395,17 +404,32 @@ class TranslatorService : Service() {
   private fun showWidget() {
     // Nut tron chinh
     val main = TextView(this)
-    main.text = "L"
-    main.setTextColor(Color.WHITE)
+    main.text = ""
+    main.setTextColor(Color.parseColor("#047857"))
     main.setTextSize(TypedValue.COMPLEX_UNIT_SP, 22f)
     main.gravity = Gravity.CENTER
     main.contentDescription = "Nút dịch Lumo Lens"
-    main.background = GradientDrawable().apply {
-      shape = GradientDrawable.OVAL
-      setColor(accentColor)
+    val launcherIcon = packageManager.getApplicationIcon(packageName).mutate()
+    val logo = if (launcherIcon is android.graphics.drawable.AdaptiveIconDrawable) launcherIcon.foreground else launcherIcon
+    main.background = android.graphics.drawable.LayerDrawable(arrayOf(
+      GradientDrawable().apply {
+        shape = GradientDrawable.OVAL
+        setColor(Color.WHITE)
+        setStroke(dp(1), Color.parseColor("#A7F3D0"))
+      },
+      // Chi lay lop logo trong suot, khong lay nen trang cua adaptive launcher icon.
+      logo
+    )).apply {
+      setLayerInset(1, dp(5), dp(5), dp(5), dp(5))
     }
-    main.elevation = dp(6).toFloat()
-    main.layoutParams = LinearLayout.LayoutParams(dp(56), dp(56))
+    main.outlineProvider = object : android.view.ViewOutlineProvider() {
+      override fun getOutline(view: View, outline: android.graphics.Outline) {
+        outline.setOval(0, 0, view.width, view.height)
+      }
+    }
+    main.clipToOutline = true
+    main.elevation = dp(4).toFloat()
+    main.layoutParams = LinearLayout.LayoutParams(dp(44), dp(44))
     mainButton = main
 
     // Thanh cong cu (mac dinh an)
@@ -413,13 +437,15 @@ class TranslatorService : Service() {
     menuLayout.orientation = LinearLayout.VERTICAL
     menuLayout.gravity = Gravity.CENTER_HORIZONTAL
     menuLayout.visibility = View.GONE
-    menuLayout.setPadding(dp(6), 0, dp(6), dp(8))
-    menuLayout.background = GradientDrawable().apply {
-      cornerRadius = dp(28).toFloat()
-      setColor(Color.parseColor("#E612302D"))
-    }
+    menuLayout.setPadding(0, dp(4), 0, dp(4))
+    menuLayout.addView(View(this).apply {
+      setBackgroundColor(Color.parseColor("#E2E8F0"))
+      layoutParams = LinearLayout.LayoutParams(dp(24), dp(1)).apply { topMargin = dp(8) }
+    })
     menuLayout.addView(menuButton(android.R.drawable.ic_menu_camera, "Dịch toàn màn hình") { translateFullScreen() })
-    menuLayout.addView(menuButton(android.R.drawable.ic_menu_rotate, "Dịch tự động") { toggleAuto() })
+    autoTranslateButton = menuButton(android.R.drawable.ic_menu_rotate, "Dịch tự động") { toggleAuto() }.also {
+      menuLayout.addView(it)
+    }
     val fixedButton = menuButton(android.R.drawable.ic_menu_edit, "Dịch khu vực cố định") { translateFixedArea() }
     // Nhan giu nut nay de chon lai khu vuc co dinh
     fixedButton.setOnLongClickListener {
@@ -433,18 +459,33 @@ class TranslatorService : Service() {
       it.visibility = if (mode == "manga") View.VISIBLE else View.GONE
       menuLayout.addView(it)
     }
-    menuLayout.addView(menuButton(android.R.drawable.ic_menu_close_clear_cancel, "Tắt nút dịch") { stopSelf() })
+    menuLayout.addView(menuButton(android.R.drawable.ic_menu_close_clear_cancel, "Thu gọn thanh công cụ") { collapseMenu() })
+    menuLayout.addView(menuButton(android.R.drawable.ic_lock_power_off, "Tắt nút dịch") { stopSelf() }.apply {
+      setColorFilter(Color.parseColor("#BE123C"))
+    })
     menu = menuLayout
 
     val container = LinearLayout(this)
     container.orientation = LinearLayout.VERTICAL
     container.gravity = Gravity.CENTER_HORIZONTAL
+    container.setPadding(dp(6), dp(6), dp(6), dp(6))
+    container.background = GradientDrawable().apply {
+      cornerRadius = dp(28).toFloat()
+      setColor(Color.parseColor("#F2FFFFFF"))
+      setStroke(dp(1), Color.WHITE)
+    }
+    container.background.alpha = 0
+    container.elevation = 0f
+    container.clipChildren = false
+    container.clipToPadding = false
     container.addView(main)
     val scroll = android.widget.ScrollView(this)
     scroll.visibility = View.GONE
     scroll.addView(menuLayout)
     menuLayout.visibility = View.VISIBLE
-    scroll.layoutParams = LinearLayout.LayoutParams(dp(68), min(dp(330), resources.displayMetrics.heightPixels / 2))
+    scroll.isFillViewport = false
+    scroll.isVerticalScrollBarEnabled = false
+    scroll.layoutParams = LinearLayout.LayoutParams(dp(44), min(dp(317), resources.displayMetrics.heightPixels / 2))
     container.addView(scroll)
     menuScroll = scroll
     widget = container
@@ -526,11 +567,29 @@ class TranslatorService : Service() {
 
   private fun toggleMenu() {
     val layout = menuScroll ?: return
-    layout.visibility = if (layout.visibility == View.VISIBLE) View.GONE else View.VISIBLE
+    autoTranslateButton?.apply {
+      setColorFilter(Color.parseColor(if (autoMode) "#047857" else "#334155"))
+      isSelected = autoMode
+      contentDescription = if (autoMode) "Dịch tự động: đang bật" else "Dịch tự động: đang tắt"
+      background = GradientDrawable().apply {
+        cornerRadius = dp(16).toFloat()
+        setColor(Color.parseColor(if (autoMode) "#ECFDF5" else "#FFFFFF"))
+        setStroke(dp(1), Color.parseColor(if (autoMode) "#6EE7B7" else "#E2E8F0"))
+      }
+    }
+    if (layout.visibility == View.VISIBLE) {
+      collapseMenu()
+    } else {
+      layout.visibility = View.VISIBLE
+      widget?.background?.alpha = 255
+      widget?.elevation = dp(8).toFloat()
+    }
   }
 
   private fun collapseMenu() {
     menuScroll?.visibility = View.GONE
+    widget?.background?.alpha = 0
+    widget?.elevation = 0f
   }
 
   private fun hideStoryConfirmation() {
@@ -585,6 +644,7 @@ class TranslatorService : Service() {
 
   private fun stopAuto() {
     autoState.stop()
+    hideGlow()
     cachedTranslations = emptyList()
     handler.removeCallbacks(autoRetryRunnable)
     clearOverlay()
@@ -670,7 +730,7 @@ class TranslatorService : Service() {
     if (destroyed || id != workId) return
     isBusy = false
     hideGlow()
-    mainButton?.text = "L"
+    mainButton?.text = ""
     widget?.visibility = View.VISIBLE
     if (activeAutoGeneration == null || autoState.isCurrent(activeAutoGeneration!!)) {
       overlay?.visibility = View.VISIBLE
@@ -875,9 +935,9 @@ class TranslatorService : Service() {
       }
   }
 
-  // Chi hien lop sang khi dich tay; auto mode giu nut noi de nguoi dung co the dung.
+  // Lop sang khong nhan cham, nen auto van giu duoc thao tac tren widget va ung dung.
   private fun showGlow() {
-    if (autoMode || glowView != null) return
+    if (glowView != null) return
     val view = GlowView(this)
     val params = WindowManager.LayoutParams(
       captureWidth,
@@ -902,7 +962,8 @@ class TranslatorService : Service() {
   }
 
   private fun translateAndDraw(bitmap: Bitmap, boxes: List<Rect>, texts: List<String>, lineHeights: List<Int>, id: Long, generation: Long?, key: String, cached: List<String>?) {
-    showGlow()
+    // Chi hien khi can ban dich moi; khong nhap nhay o luot quet dung lai cache RAM.
+    if (cached == null) showGlow()
     val request = buildTranslationRequest(texts)
     val requestMode = mode
     networkExecutor.execute {

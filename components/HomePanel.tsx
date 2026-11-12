@@ -129,25 +129,6 @@ export default function HomePanel({ onManageModels }: { onManageModels: () => vo
         </View>
       ) : null}
 
-      <View style={styles.card}>
-        <Text allowFontScaling={false} style={styles.sectionTitle}>Chế độ dịch</Text>
-        <View style={[styles.bentoRow, { marginTop: 12 }]}>
-          {(["game", "manga"] as const).map((mode) => (
-            <Pressable key={mode} accessibilityRole="radio" accessibilityState={{ checked: translationMode === mode }}
-              onPress={() => setTranslationMode(mode)}
-              style={[styles.secondaryButton, { flex: 1, borderColor: translationMode === mode ? ACCENT : TEXT_DIM, borderWidth: translationMode === mode ? 2 : 1 }]}>
-              <View style={styles.iconLabel}>
-                <StitchIcon name={mode === "game" ? "speed" : "layers"} color={ACCENT} size={20} />
-                <Text allowFontScaling={false} style={styles.secondaryButtonText}>{mode === "game" ? "Game" : "Truyện"}</Text>
-              </View>
-            </Pressable>
-          ))}
-        </View>
-        <Text allowFontScaling={false} style={[styles.heroText, { marginTop: 10 }]}>
-          {translationMode === "game" ? "Ưu tiên tốc độ, không dùng lịch sử dịch." : "Dùng ngữ cảnh gần nhất để hỗ trợ dịch liền mạch. Ngữ cảnh chỉ giữ trong phiên widget."}
-        </Text>
-      </View>
-
       {/* Khoi chon ngon ngu */}
       <View style={styles.bentoRow}>
       <View style={styles.bentoTile}>
@@ -180,7 +161,24 @@ export default function HomePanel({ onManageModels }: { onManageModels: () => vo
         <Pressable style={styles.secondaryButton} accessibilityRole="button" accessibilityLabel="Chọn model dịch" onPress={() => setPickerFor("model")}>
           <Text allowFontScaling={false} style={styles.secondaryButtonText}>Chọn model khác</Text>
         </Pressable>
-        {running ? <Text allowFontScaling={false} style={styles.hint}>Tắt rồi bật lại nút dịch để áp dụng model mới.</Text> : null}
+        <View style={{ gap: 8, marginTop: 16 }}>
+          {(["game", "manga"] as const).map((mode) => {
+            const selected = translationMode === mode;
+            const color = mode === "game" ? "#16735D" : "#2167AA";
+            return (
+              <Pressable key={mode} accessibilityRole="radio" accessibilityState={{ checked: selected }}
+                accessibilityLabel={mode === "game" ? "Chế độ dịch game" : "Chế độ dịch truyện"}
+                accessibilityHint={mode === "game" ? "Ưu tiên tốc độ, không dùng lịch sử dịch" : "Dùng ngữ cảnh gần nhất, chỉ giữ trong phiên widget"}
+                onPress={() => setTranslationMode(mode)}
+                style={{ minHeight: 44, borderRadius: 24, borderWidth: selected ? 2 : 1, borderColor: selected ? color : mode === "game" ? "#B6EBD8" : "#BEDFFF", backgroundColor: mode === "game" ? "#ECFBF3" : "#F0F8FF", paddingHorizontal: 10, paddingVertical: 9, alignItems: "center", justifyContent: "center" }}>
+                <View style={[styles.iconLabel, { gap: 6 }]}>
+                  <StitchIcon name={mode === "game" ? "sports_esports" : "menu_book"} color={color} size={18} />
+                  <Text allowFontScaling={false} style={[styles.secondaryButtonText, { color, fontSize: 13, flexShrink: 1 }]}>{mode === "game" ? "Game HUD Mode" : "Manga / Webtoon"}</Text>
+                </View>
+              </Pressable>
+            );
+          })}
+        </View>
       </View>
       </View>
 

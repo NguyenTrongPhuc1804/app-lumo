@@ -15,6 +15,8 @@ const ICONS = {
   dns: "\ue875",
   key: "\ue73c",
   speed: "\ue9e4",
+  sports_esports: "\uea28",
+  menu_book: "\uea19",
   refresh: "\ue5d5",
   add: "\ue145",
   edit: "\uf097",
