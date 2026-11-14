@@ -98,7 +98,7 @@ export default function ModelsPanel({ onOpenForm }: { onOpenForm: (id: string) =
                 </View>
 
                 <View style={styles.modelActionsRow}>
-                  <Pressable style={styles.actionBtn} disabled={isDeleting} accessibilityRole="button" onPress={() => onOpenForm(item.id)}>
+                  <Pressable style={styles.actionBtn} disabled={isDeleting} accessibilityRole="button" accessibilityLabel={`Chỉnh sửa ${item.name}`} onPress={() => onOpenForm(item.id)}>
                     <View style={styles.iconLabel}><StitchIcon name="edit" size={18} color={TEXT_DIM} /><Text allowFontScaling={false} style={styles.actionBtnText}>Sửa</Text></View>
                   </Pressable>
                   <Pressable

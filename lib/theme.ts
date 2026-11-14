@@ -131,7 +131,28 @@ export function createTheme(dark: boolean, scale: number, width: number) {
 
   // Hop chon ngon ngu
   modalBackdrop: { flex: 1, backgroundColor: "rgba(8,9,14,0.72)", justifyContent: "center", padding: 24 },
+  sheetBackdrop: { flex: 1, backgroundColor: "rgba(8,9,14,0.45)", justifyContent: "flex-end" },
   modalCard: { backgroundColor: CARD, borderRadius: RADIUS, padding: 18, gap: 4 },
+  modelSheet: { backgroundColor: CARD, borderTopLeftRadius: 32, borderTopRightRadius: 32, paddingHorizontal: 20, paddingTop: 12, paddingBottom: 20, gap: 12, maxHeight: "92%", shadowColor: "#0F172A", shadowOffset: { width: 0, height: -8 }, shadowOpacity: 0.14, shadowRadius: 18, elevation: 12 },
+  modelFormSheet: { minHeight: "70%", flex: 1 },
+  sheetHandle: { alignSelf: "center", width: 48, height: 6, borderRadius: 3, backgroundColor: BORDER, marginBottom: 2 },
+  sheetHeader: { flexDirection: "row", alignItems: "flex-start", gap: 12, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: BORDER },
+  sheetTitle: { color: TEXT, fontSize: 18, fontFamily: FONT_BOLD },
+  sheetSubtitle: { color: TEXT_MUTED, fontSize: 12, lineHeight: 18, fontFamily: FONT },
+  sheetClose: { width: 48, height: 48, minHeight: 48, borderRadius: 24, backgroundColor: CARD_ALT, alignItems: "center", justifyContent: "center" },
+  // Ky tu "x" phai co lineHeight bang fontSize va tat font padding, neu khong
+  // baseline thap se day glyph xuong goc duoi-phai cua vong tron.
+  sheetCloseText: { color: TEXT_DIM, fontSize: 24, lineHeight: 24, includeFontPadding: false, textAlign: "center", textAlignVertical: "center", flexShrink: 0, fontFamily: FONT },
+  sheetState: { backgroundColor: CARD_ALT, borderRadius: RADIUS_SM, padding: 12, gap: 8 },
+  retryButton: { alignSelf: "flex-start", minHeight: 48, justifyContent: "center", paddingHorizontal: 12 },
+  modelPickerList: { maxHeight: 360 },
+  modelPickerItem: { minHeight: 56, flexDirection: "row", alignItems: "center", gap: 10, padding: 10, borderRadius: RADIUS_SM, borderWidth: 1, borderColor: BORDER, backgroundColor: CARD },
+  modelPickerItemSelected: { borderColor: ACCENT, borderWidth: 2, backgroundColor: "#ECFDF5" },
+  modelPickerGlyph: { width: 36, height: 36, borderRadius: 12, backgroundColor: CARD_ALT, alignItems: "center", justifyContent: "center" },
+  modelPickerGlyphSelected: { backgroundColor: ACCENT },
+  modelPickerCheck: { backgroundColor: ACCENT, borderColor: ACCENT },
+  modelFormGroup: { backgroundColor: CARD_ALT, borderRadius: RADIUS, borderWidth: 1, borderColor: BORDER, padding: 14, gap: 14 },
+  formFooter: { flexDirection: "row", flexWrap: "wrap", gap: 10, justifyContent: "flex-end", paddingTop: 12, borderTopWidth: 1, borderTopColor: BORDER },
   modalItem: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 14, minHeight: 48 },
   modalItemText: { color: TEXT, fontSize: 16, fontFamily: FONT },
 
@@ -141,7 +162,7 @@ export function createTheme(dark: boolean, scale: number, width: number) {
   primaryBtn: { backgroundColor: ACCENT, paddingVertical: 10, paddingHorizontal: 16, borderRadius: RADIUS_SM, minHeight: 48, justifyContent: "center" },
   primaryBtnText: { color: ACCENT_ON, fontFamily: FONT_BOLD, fontSize: 13 },
   emptyText: { color: TEXT_MUTED, fontSize: 13, lineHeight: 18, paddingVertical: 4, fontFamily: FONT },
-  modelCardItem: { backgroundColor: CARD, borderColor: BORDER, borderWidth: 1, borderRadius: RADIUS, padding: 14, gap: 10 },
+  modelCardItem: { backgroundColor: CARD, borderColor: BORDER, borderWidth: 1, borderRadius: 20, padding: 16, gap: 12, shadowColor: "#0F172A", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 1 },
   modelCardSelected: { backgroundColor: CARD, borderColor: ACCENT, borderWidth: 2 },
   modelNameText: { color: TEXT, fontSize: 16, fontFamily: FONT_BOLD },
   modelCodeText: { color: TEXT_MUTED, fontSize: 13, fontFamily: FONT },
@@ -178,7 +199,8 @@ export function createTheme(dark: boolean, scale: number, width: number) {
     if (typeof style.fontSize === "number") {
       style.fontSize = Math.round(style.fontSize * scale);
       if (typeof style.lineHeight === "number" && definition !== definitions.headerHelp) style.lineHeight = Math.round(style.lineHeight * scale);
-      style.flexShrink = 1;
+      // Chi mac dinh co lai khi style khong khai bao flexShrink tuong minh.
+      if (style.flexShrink === undefined) style.flexShrink = 1;
     }
   }
   definitions.lensFace.borderColor = BORDER;

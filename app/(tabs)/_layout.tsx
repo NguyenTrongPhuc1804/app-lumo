@@ -112,8 +112,18 @@ export default function TabsLayout() {
         animationType="slide"
         onRequestClose={closeForm}
       >
-        <Pressable style={styles.modalBackdrop} onPress={closeForm}>
-          <Pressable style={styles.modalCardLarge} onPress={(e) => e.stopPropagation()}>
+        <Pressable style={styles.sheetBackdrop} onPress={closeForm}>
+          <Pressable style={[styles.modelSheet, styles.modelFormSheet]} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.sheetHandle} accessibilityElementsHidden />
+            <View style={styles.sheetHeader}>
+              <View style={{ flex: 1 }}>
+                <Text allowFontScaling={false} style={styles.sheetTitle}>{formId === "new" ? "Thêm Model AI Mới" : "Chỉnh sửa Model AI"}</Text>
+                <Text allowFontScaling={false} style={styles.sheetSubtitle}>Cấu hình thông tin kết nối với model dịch</Text>
+              </View>
+              <Pressable style={styles.sheetClose} accessibilityRole="button" accessibilityLabel="Đóng biểu mẫu model" onPress={closeForm}>
+                <Text allowFontScaling={false} style={styles.sheetCloseText}>×</Text>
+              </Pressable>
+            </View>
             <ModelForm key={formInstance} id={formId} onClose={closeForm} saving={saving} onSavingChange={changeSaving} />
           </Pressable>
         </Pressable>

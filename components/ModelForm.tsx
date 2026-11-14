@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import StitchIcon from "./StitchIcon";
 import { useAppearance } from "../lib/appearance";
 import { useSettings } from "../lib/settings";
 
@@ -114,10 +115,14 @@ export function ModelForm({ id, onClose, saving, onSavingChange }: { id: string;
 
   return (
     <>
-      <Text allowFontScaling={false} style={styles.sectionTitle}>{isNew ? "Thêm Model Dịch Mới" : "Chỉnh Sửa Model"}</Text>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <StitchIcon name="memory" size={20} color={ACCENT} />
+          <Text allowFontScaling={false} style={styles.sectionTitle}>{isNew ? "Thêm Model AI Mới" : "Chỉnh Sửa Model"}</Text>
+        </View>
 
-      <ScrollView contentContainerStyle={{ gap: 10, paddingVertical: 8 }}>
-        <View>
+    <ScrollView style={{ flexShrink: 1 }} contentContainerStyle={{ gap: 14, paddingVertical: 8, paddingBottom: 16 }} keyboardShouldPersistTaps="handled">
+      <View style={styles.modelFormGroup}>
+      <View>
           <Text allowFontScaling={false} style={styles.inputLabel}>Tên hiển thị (*)</Text>
           <TextInput
             allowFontScaling={false}
@@ -193,7 +198,7 @@ export function ModelForm({ id, onClose, saving, onSavingChange }: { id: string;
 
         <Text allowFontScaling={false} style={styles.hint}>Server sẽ gọi thử model trước khi lưu. Thất bại thì báo lỗi và không lưu.</Text>
 
-        <View style={styles.modalBtnsRow}>
+        <View style={styles.formFooter}>
           <Pressable style={styles.cancelBtn} disabled={saving} onPress={onClose}>
             <Text allowFontScaling={false} style={styles.cancelBtnText}>Hủy</Text>
           </Pressable>
@@ -202,6 +207,7 @@ export function ModelForm({ id, onClose, saving, onSavingChange }: { id: string;
             <Text allowFontScaling={false} style={styles.saveBtnText}>{saving ? "Đang lưu..." : "Lưu Model"}</Text>
           </Pressable>
         </View>
+      </View>
       </ScrollView>
     </>
   );

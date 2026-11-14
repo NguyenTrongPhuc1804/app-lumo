@@ -22,7 +22,7 @@ function GestureRow({ name, action, last }: { name: string; action: string; last
 }
 
 export default function HomePanel({ onManageModels }: { onManageModels: () => void }) {
-  const { styles, ACCENT, TEXT_DIM } = useAppearance();
+  const { styles, ACCENT, ACCENT_ON, TEXT_DIM } = useAppearance();
   const {
     serverUrl,
     sourceLang,
@@ -191,44 +191,54 @@ export default function HomePanel({ onManageModels }: { onManageModels: () => vo
       </View>
 
       {/* Hop chon ngon ngu hoac model */}
-      <Modal visible={pickerFor !== null} transparent animationType="fade" onRequestClose={() => setPickerFor(null)}>
-        <Pressable style={styles.modalBackdrop} onPress={() => setPickerFor(null)}>
-          <View style={styles.modalCard}>
-            <Text allowFontScaling={false} style={styles.sectionTitle}>
-              {pickerFor === "source" ? "Ngôn ngữ nguồn" : pickerFor === "model" ? "Công cụ dịch" : "Dịch sang"}
-            </Text>
+      <Modal visible={pickerFor !== null} transparent animationType={pickerFor === "model" ? "slide" : "fade"} onRequestClose={() => setPickerFor(null)}>
+        <Pressable style={pickerFor === "model" ? styles.sheetBackdrop : styles.modalBackdrop} onPress={() => setPickerFor(null)}>
+          <View style={pickerFor === "model" ? styles.modelSheet : styles.modalCard}>
+            {pickerFor === "model" ? <View style={styles.sheetHandle} accessibilityElementsHidden /> : null}
+            {pickerFor === "model" ? (
+              <View style={styles.sheetHeader}>
+                <View style={{ flex: 1, gap: 3 }}>
+                  <Text allowFontScaling={false} style={styles.sheetTitle}>Chọn Model AI</Text>
+                  <Text allowFontScaling={false} style={styles.sheetSubtitle}>Chọn công cụ phù hợp với nhu cầu dịch của bạn</Text>
+                </View>
+                <Pressable style={styles.sheetClose} accessibilityRole="button" accessibilityLabel="Đóng chọn model" onPress={() => setPickerFor(null)}>
+                  <Text allowFontScaling={false} style={styles.sheetCloseText}>×</Text>
+                </Pressable>
+              </View>
+            ) : (
+              <Text allowFontScaling={false} style={styles.sectionTitle}>
+                {pickerFor === "source" ? "Ngôn ngữ nguồn" : "Dịch sang"}
+              </Text>
+            )}
             {pickerFor === "model" ? (
               <>
                 {modelsLoading ? <View style={styles.rowBetween}><ActivityIndicator /><Text allowFontScaling={false} style={styles.hint}>Đang tải danh sách...</Text></View> : null}
-                {modelsError ? <View><Text allowFontScaling={false} style={styles.hint}>{modelsError}</Text><Pressable disabled={modelsLoading} onPress={reloadModels}><Text allowFontScaling={false} style={styles.actionBtnText}>Thử lại</Text></Pressable></View> : null}
-                <ScrollView style={{ maxHeight: 320 }}>
+                {modelsError ? <View style={styles.sheetState}><Text allowFontScaling={false} style={styles.hint}>{modelsError}</Text><Pressable disabled={modelsLoading} style={styles.retryButton} onPress={reloadModels}><Text allowFontScaling={false} style={styles.actionBtnText}>Thử lại</Text></Pressable></View> : null}
+                <ScrollView style={styles.modelPickerList} contentContainerStyle={{ gap: 8 }}>
                   {modelList.map((m) => {
                     const selected = model === m.code;
                     return (
                       <Pressable
                         key={m.code}
-                        style={styles.modalItem}
-                        accessibilityRole="button"
+                        style={[styles.modelPickerItem, selected && styles.modelPickerItemSelected]}
+                        accessibilityRole="radio"
                         accessibilityState={{ selected }}
                         onPress={() => {
                           setModel(m.code);
                           setPickerFor(null);
                         }}
                       >
-                        <Text allowFontScaling={false} style={[styles.modalItemText, selected && styles.tabActive]}>{m.label}</Text>
-                        {selected ? <StitchIcon name="check" size={20} color={ACCENT} /> : null}
+                        <View style={[styles.modelPickerGlyph, selected && styles.modelPickerGlyphSelected]}><StitchIcon name="memory" size={20} color={selected ? ACCENT_ON : ACCENT} /></View>
+                        <View style={{ flex: 1, gap: 2 }}>
+                          <Text allowFontScaling={false} style={styles.modalItemText}>{m.label}</Text>
+                          <Text allowFontScaling={false} style={styles.modelCodeSub}>{m.code}</Text>
+                        </View>
+                        <View style={[styles.modelRadio, selected && styles.modelPickerCheck]}>{selected ? <StitchIcon name="check" size={16} color={ACCENT_ON} /> : null}</View>
                       </Pressable>
                     );
                   })}
                 </ScrollView>
-
-                <Pressable
-                  style={styles.manageQuickBtn}
-                  onPress={() => {
-                    setPickerFor(null);
-                    onManageModels();
-                  }}
-                >
+                <Pressable style={styles.manageQuickBtn} accessibilityRole="button" onPress={() => { setPickerFor(null); onManageModels(); }}>
                   <View style={styles.iconLabel}><StitchIcon name="tune" size={20} color={ACCENT} /><Text allowFontScaling={false} style={[styles.manageQuickText, { flex: 1 }]}>Thêm / Quản lý Model AI riêng</Text><StitchIcon name="chevron_right" size={20} color={ACCENT} /></View>
                 </Pressable>
               </>
