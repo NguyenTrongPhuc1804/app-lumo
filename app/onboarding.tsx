@@ -1,8 +1,8 @@
 import { Stack, router } from "expo-router";
 import { useEffect, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
-import { useSettings } from "../lib/settings";
-import { useAppearance } from "../lib/appearance";
+import { useConfigStore } from "../stores/configStore";
+import { useTheme } from "../hooks/useTheme";
 
 const ONBOARDING = [
   {
@@ -38,8 +38,9 @@ const ONBOARDING = [
 ];
 
 export default function OnboardingScreen() {
-  const { styles } = useAppearance();
-  const { onboarded, finishOnboarding } = useSettings();
+  const { styles } = useTheme();
+  const onboarded = useConfigStore((s) => s.onboarded);
+  const finishOnboarding = useConfigStore((s) => s.finishOnboarding);
   const [page, setPage] = useState(0);
   const current = ONBOARDING[page];
 

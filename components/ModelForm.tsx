@@ -1,15 +1,21 @@
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import StitchIcon from "./StitchIcon";
-import { useAppearance } from "../lib/appearance";
-import { useSettings } from "../lib/settings";
+import { useConfigStore } from "../stores/configStore";
+import { useModelStore } from "../stores/modelStore";
+import { useTheme } from "../hooks/useTheme";
 
 // id = "new" thi tao moi, con lai la id model tren server
 export function ModelForm({ id, onClose, saving, onSavingChange }: { id: string; onClose: () => void; saving: boolean; onSavingChange: (value: boolean) => void }) {
-  const { styles, ACCENT, TEXT_MUTED, DANGER } = useAppearance();
+  const { styles, ACCENT, TEXT_MUTED, DANGER } = useTheme();
   const savingRef = useRef(false);
   const testingRef = useRef(false);
-  const { serverUrl, adminKey, customModels, reloadAdminModels, reloadModels, setModel } = useSettings();
+  const serverUrl = useConfigStore((s) => s.serverUrl);
+  const adminKey = useConfigStore((s) => s.adminKey);
+  const setModel = useConfigStore((s) => s.setModel);
+  const customModels = useModelStore((s) => s.customModels);
+  const reloadAdminModels = useModelStore((s) => s.reloadAdminModels);
+  const reloadModels = useModelStore((s) => s.reloadModels);
   const isNew = id === "new";
   const editing = isNew ? null : customModels.find((m) => m.id === id) ?? null;
 

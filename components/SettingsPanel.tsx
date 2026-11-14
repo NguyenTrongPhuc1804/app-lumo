@@ -1,14 +1,29 @@
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native";
-import { useSettings } from "../lib/settings";
-import { useAppearance } from "../lib/appearance";
+import { useConfigStore } from "../stores/configStore";
+import { useModelStore } from "../stores/modelStore";
+import { useServiceStore } from "../stores/serviceStore";
+import { useAppearanceStore } from "../stores/appearanceStore";
 import type { TextSize } from "../lib/appearance-options";
+import { useTheme } from "../hooks/useTheme";
 import StitchIcon from "./StitchIcon";
 
 import ScreenTranslator from "../modules/screen-translator";
 
 export default function SettingsPanel() {
-  const { styles, ACCENT, TEXT_MUTED, colorMode, textSize, setColorMode, setTextSize, storageError } = useAppearance();
-  const { serverUrl, setServerUrl, adminKey, setAdminKey, hasOverlayPermission, reloadModels, modelsLoading, modelsError } = useSettings();
+  const { styles, ACCENT, TEXT_MUTED } = useTheme();
+  const colorMode = useAppearanceStore((s) => s.colorMode);
+  const textSize = useAppearanceStore((s) => s.textSize);
+  const setColorMode = useAppearanceStore((s) => s.setColorMode);
+  const setTextSize = useAppearanceStore((s) => s.setTextSize);
+  const storageError = useAppearanceStore((s) => s.storageError);
+  const serverUrl = useConfigStore((s) => s.serverUrl);
+  const setServerUrl = useConfigStore((s) => s.setServerUrl);
+  const adminKey = useConfigStore((s) => s.adminKey);
+  const setAdminKey = useConfigStore((s) => s.setAdminKey);
+  const hasOverlayPermission = useServiceStore((s) => s.hasOverlayPermission);
+  const reloadModels = useModelStore((s) => s.reloadModels);
+  const modelsLoading = useModelStore((s) => s.modelsLoading);
+  const modelsError = useModelStore((s) => s.modelsError);
 
   return (
     <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">

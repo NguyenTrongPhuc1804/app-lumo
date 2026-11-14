@@ -2,8 +2,10 @@ import { BeVietnamPro_400Regular, BeVietnamPro_500Medium, BeVietnamPro_700Bold, 
 import { Stack } from "expo-router";
 import { StatusBar } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { SettingsProvider } from "../lib/settings";
-import { AppearanceProvider, useAppearance } from "../lib/appearance";
+import { useAppearanceStore } from "../stores/appearanceStore";
+import { useConfigStore } from "../stores/configStore";
+import { useAppSync } from "../hooks/useAppSync";
+import { useTheme } from "../hooks/useTheme";
 
 // padding tren de khong bi thanh trang thai che
 const TOP = StatusBar.currentHeight ?? 0;
@@ -11,18 +13,25 @@ const TOP = StatusBar.currentHeight ?? 0;
 export default function RootLayout() {
   // Cho font san sang truoc khi ve giao dien de chu khong bi doi kieu
   const [fontsLoaded] = useFonts({ BeVietnamPro_400Regular, BeVietnamPro_500Medium, BeVietnamPro_700Bold, MaterialSymbolsOutlined: require("../assets/MaterialSymbolsOutlined.ttf") });
+  // Cho doc xong du lieu da luu de khong hien nham che do sang roi doi sang toi
+  const configReady = useConfigStore((s) => s.hydrated);
+  const appearanceReady = useAppearanceStore((s) => s.hydrated);
 
-  if (!fontsLoaded) return null;
+  if (!fontsLoaded || !configReady || !appearanceReady) return null;
 
   return (
     <SafeAreaProvider>
-      <AppearanceProvider><SettingsProvider><AppNavigation /></SettingsProvider></AppearanceProvider>
+      <AppNavigation />
     </SafeAreaProvider>
   );
 }
 
 function AppNavigation() {
-  const { BACKGROUND, colorMode } = useAppearance();
+  const { BACKGROUND } = useTheme();
+  const colorMode = useAppearanceStore((s) => s.colorMode);
+  // Dong bo cau hinh native, tai danh sach model va trang thai quyen
+  useAppSync();
+
   return (
     <>
         <StatusBar barStyle={colorMode === "dark" ? "light-content" : "dark-content"} />

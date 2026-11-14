@@ -6,8 +6,8 @@ import HomePanel from "../../components/HomePanel";
 import { ModelForm } from "../../components/ModelForm";
 import ModelsPanel from "../../components/ModelsPanel";
 import SettingsPanel from "../../components/SettingsPanel";
-import { useSettings } from "../../lib/settings";
-import { useAppearance } from "../../lib/appearance";
+import { useConfigStore } from "../../stores/configStore";
+import { useTheme } from "../../hooks/useTheme";
 import StitchIcon, { StitchIconName } from "../../components/StitchIcon";
 
 const TABS: { key: string; icon: StitchIconName; label: string }[] = [
@@ -18,9 +18,9 @@ const TABS: { key: string; icon: StitchIconName; label: string }[] = [
 
 // Header + noi dung tab + thanh tab duoi. Them/sua model dung Modal ngay trong tab.
 export default function TabsLayout() {
-  const { styles, ACCENT, ACCENT_ON, TEXT_MUTED } = useAppearance();
+  const { styles, ACCENT, ACCENT_ON, TEXT_MUTED } = useTheme();
   const insets = useSafeAreaInsets();
-  const { onboarded } = useSettings();
+  const onboarded = useConfigStore((s) => s.onboarded);
   const [tab, setTab] = useState("home");
   const [formId, setFormId] = useState("");
   const [formVisible, setFormVisible] = useState(false);

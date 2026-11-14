@@ -16,8 +16,10 @@ test('expanding/collapsing remains separate from selecting and errors stay visib
     if (name === 'react') return { useCallback: (f) => f, useState: () => { const i = cursor++; return [state[i], (value) => { state[i] = value; }]; } };
     if (name === 'expo-router') return { useFocusEffect: () => {} };
     if (name === 'react-native') return { View: 'View', Text: 'Text', Pressable: 'Pressable', TextInput: 'TextInput' };
-    if (name === '../lib/settings') return { useSettings: () => settings };
-    if (name === '../lib/appearance') return { useAppearance: () => ({ styles: {} }) };
+    if (name === '../stores/configStore') return { useConfigStore: (select) => select(settings) };
+    if (name === '../stores/modelStore') return { useModelStore: (select) => select(settings) };
+    if (name === '../stores/serviceStore') return { useServiceStore: (select) => select(settings) };
+    if (name === '../hooks/useTheme') return { useTheme: () => ({ styles: {} }) };
     if (name === '../lib/model-search') return { filterModels: (models, query) => models.filter((m) => m.name.includes(query)) };
     if (name === './StitchIcon') return { default: () => null };
     return require(name);

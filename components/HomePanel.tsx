@@ -3,8 +3,10 @@ import { LinearGradient } from "expo-linear-gradient";
 import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, Text, View } from "react-native";
 import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withSpring, withTiming } from "react-native-reanimated";
 import { LANGS, labelOf, startTranslator, stopTranslator } from "../lib/api";
-import { useSettings } from "../lib/settings";
-import { useAppearance } from "../lib/appearance";
+import { useConfigStore } from "../stores/configStore";
+import { useModelStore } from "../stores/modelStore";
+import { useServiceStore } from "../stores/serviceStore";
+import { useTheme } from "../hooks/useTheme";
 import StitchIcon from "./StitchIcon";
 import ScreenTranslator from "../modules/screen-translator";
 
@@ -12,7 +14,7 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 // Mot dong "ten - hanh dong" trong cac khoi huong dan
 function GestureRow({ name, action, last }: { name: string; action: string; last?: boolean }) {
-  const { styles } = useAppearance();
+  const { styles } = useTheme();
   return (
     <View style={[styles.gestureRow, !last && styles.gestureRowBorder]}>
       <Text allowFontScaling={false} style={styles.gestureName}>{name}</Text>
@@ -22,26 +24,24 @@ function GestureRow({ name, action, last }: { name: string; action: string; last
 }
 
 export default function HomePanel({ onManageModels }: { onManageModels: () => void }) {
-  const { styles, ACCENT, ACCENT_ON, TEXT_DIM } = useAppearance();
-  const {
-    serverUrl,
-    sourceLang,
-    targetLang,
-    model,
-    translationMode,
-    setTranslationMode,
-    modelList,
-    customModels,
-    setModel,
-    chooseLanguage,
-    swapLanguages,
-    running,
-    setRunning,
-    hasOverlayPermission,
-    modelsLoading,
-    modelsError,
-    reloadModels,
-  } = useSettings();
+  const { styles, ACCENT, ACCENT_ON, TEXT_DIM } = useTheme();
+  const serverUrl = useConfigStore((s) => s.serverUrl);
+  const sourceLang = useConfigStore((s) => s.sourceLang);
+  const targetLang = useConfigStore((s) => s.targetLang);
+  const model = useConfigStore((s) => s.model);
+  const translationMode = useConfigStore((s) => s.translationMode);
+  const setTranslationMode = useConfigStore((s) => s.setTranslationMode);
+  const setModel = useConfigStore((s) => s.setModel);
+  const chooseLanguage = useConfigStore((s) => s.chooseLanguage);
+  const swapLanguages = useConfigStore((s) => s.swapLanguages);
+  const modelList = useModelStore((s) => s.modelList);
+  const customModels = useModelStore((s) => s.customModels);
+  const modelsLoading = useModelStore((s) => s.modelsLoading);
+  const modelsError = useModelStore((s) => s.modelsError);
+  const reloadModels = useModelStore((s) => s.reloadModels);
+  const running = useServiceStore((s) => s.running);
+  const setRunning = useServiceStore((s) => s.setRunning);
+  const hasOverlayPermission = useServiceStore((s) => s.hasOverlayPermission);
   const [pickerFor, setPickerFor] = useState<"source" | "target" | "model" | null>(null);
 
   // Hieu ung: nut tron co lai khi nhan, phap phong khi dang bat; nut doi ngon ngu xoay 180 do

@@ -15,8 +15,10 @@ test('HomePanel selects Manga and starts with selected mode', async () => {
     if (name === 'react') return { useEffect() {}, useState: value => [value, () => {}] };
     if (name === 'react-native') return { Pressable: 'Pressable', View: 'View', Text: 'Text' };
     if (name === 'react-native-reanimated') return { __esModule: true, default: { createAnimatedComponent: () => 'AnimatedButton' }, useSharedValue: value => ({ value }), useAnimatedStyle: () => ({}) };
-    if (name === '../lib/settings') return { useSettings: () => settings };
-    if (name === '../lib/appearance') return { useAppearance: () => ({ styles: {}, ACCENT: 'green', TEXT_DIM: 'gray' }) };
+    if (name === '../stores/configStore') return { useConfigStore: (select) => select(settings) };
+    if (name === '../stores/modelStore') return { useModelStore: (select) => select(settings) };
+    if (name === '../stores/serviceStore') return { useServiceStore: (select) => select(settings) };
+    if (name === '../hooks/useTheme') return { useTheme: () => ({ styles: {}, ACCENT: 'green', TEXT_DIM: 'gray' }) };
     if (name === '../lib/api') return { LANGS: [], labelOf: code => code, startTranslator: async config => { started = config; return true; } };
     if (name === 'expo-linear-gradient') return { LinearGradient: 'Gradient' };
     if (name === './StitchIcon' || name === '../modules/screen-translator') return { default: {} };

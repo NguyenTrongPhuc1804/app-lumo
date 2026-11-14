@@ -2,15 +2,25 @@ import { useCallback, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, Text, TextInput, View } from "react-native";
 import { filterModels } from "../lib/model-search";
 import { useFocusEffect } from "expo-router";
-import { useSettings } from "../lib/settings";
-import { useAppearance } from "../lib/appearance";
+import { useConfigStore } from "../stores/configStore";
+import { useModelStore } from "../stores/modelStore";
+import { useTheme } from "../hooks/useTheme";
 import StitchIcon from "./StitchIcon";
 
 export default function ModelsPanel({ onOpenForm }: { onOpenForm: (id: string) => void }) {
-  const { styles, ACCENT, ACCENT_ON, DANGER, TEXT_DIM, TEXT_MUTED } = useAppearance();
+  const { styles, ACCENT, ACCENT_ON, DANGER, TEXT_DIM, TEXT_MUTED } = useTheme();
   const [query, setQuery] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const { adminKey, model, customModels, setModel, reloadModels, reloadAdminModels, adminModelsLoading, adminModelsError, deletingIds, removeModel } = useSettings();
+  const adminKey = useConfigStore((s) => s.adminKey);
+  const model = useConfigStore((s) => s.model);
+  const setModel = useConfigStore((s) => s.setModel);
+  const customModels = useModelStore((s) => s.customModels);
+  const reloadModels = useModelStore((s) => s.reloadModels);
+  const reloadAdminModels = useModelStore((s) => s.reloadAdminModels);
+  const adminModelsLoading = useModelStore((s) => s.adminModelsLoading);
+  const adminModelsError = useModelStore((s) => s.adminModelsError);
+  const deletingIds = useModelStore((s) => s.deletingIds);
+  const removeModel = useModelStore((s) => s.removeModel);
 
   // Moi lan vao tab thi lay lai danh sach moi nhat tu server
   useFocusEffect(
