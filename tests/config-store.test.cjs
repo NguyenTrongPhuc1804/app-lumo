@@ -92,6 +92,42 @@ test('chọn trùng ngôn ngữ bên kia thì hoán đổi, swapLanguages đổi
   assert.equal(useConfigStore.getState().targetLang, 'vi');
 });
 
+test('ghi lỗi không làm app báo unhandled rejection', async () => {
+  const { useConfigStore, storage } = loadConfig({});
+  await loaded(useConfigStore);
+
+  const unhandled = [];
+  const onUnhandled = (err) => unhandled.push(err);
+  process.on('unhandledRejection', onUnhandled);
+  storage.setItem = async () => {
+    throw new Error('disk full');
+  };
+  useConfigStore.getState().setServerUrl('http://new');
+  // Chờ một nhịp để promise bị từ chối kịp nổi lên.
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  process.off('unhandledRejection', onUnhandled);
+
+  assert.equal(unhandled.length, 0);
+  assert.equal(useConfigStore.getState().serverUrl, 'http://new');
+});
+
+test('xóa khóa cũ lỗi thì vẫn giữ dữ liệu đã chuyển', async () => {
+  const storage = memoryStorage({
+    'lumo-lens-settings': JSON.stringify({ serverUrl: 'http://old', model: 'm1' }),
+    'lumo-lens-admin-key': 'secret',
+  });
+  storage.removeItem = async () => {
+    throw new Error('busy');
+  };
+  const load = createLoader({ '@react-native-async-storage/async-storage': { __esModule: true, default: storage } });
+  const { useConfigStore } = load('stores/configStore.ts');
+  const s = await loaded(useConfigStore);
+
+  assert.equal(s.serverUrl, 'http://old');
+  assert.equal(s.adminKey, 'secret');
+  assert.equal(s.model, 'm1');
+});
+
 test('lưu translationMode nhưng không lưu hydrated', async () => {
   const { useConfigStore, storage } = loadConfig({});
   await loaded(useConfigStore);

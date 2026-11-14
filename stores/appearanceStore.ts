@@ -29,23 +29,33 @@ let userChanged = false;
 // Storage riêng: đọc khóa cũ nếu khóa mới chưa có, và báo lỗi đọc/ghi ra state.
 const appearanceStorage = {
   async getItem(name: string) {
+    let legacy: string | null = null;
     try {
       const saved = await AsyncStorage.getItem(name);
       if (saved) return saved;
-
-      const legacy = await AsyncStorage.getItem(LEGACY_APPEARANCE);
-      if (!legacy) return null;
-
-      const appearance = parseAppearance(legacy);
-      const value = JSON.stringify({ state: appearance, version: 0 });
-      // Ghi khóa mới trước, chỉ xóa khóa cũ khi đã ghi xong.
-      await AsyncStorage.setItem(name, value);
-      await AsyncStorage.removeItem(LEGACY_APPEARANCE);
-      return value;
+      legacy = await AsyncStorage.getItem(LEGACY_APPEARANCE);
     } catch {
       readError = READ_ERROR;
       return null;
     }
+    if (!legacy) return null;
+
+    const appearance = parseAppearance(legacy);
+    const value = JSON.stringify({ state: appearance, version: 0 });
+    try {
+      // Ghi khóa mới trước, chỉ xóa khóa cũ khi đã ghi xong.
+      await AsyncStorage.setItem(name, value);
+    } catch {
+      // Chưa ghi được khóa mới thì giữ nguyên khóa cũ để lần sau chuyển lại.
+      readError = READ_ERROR;
+      return null;
+    }
+    try {
+      await AsyncStorage.removeItem(LEGACY_APPEARANCE);
+    } catch {
+      // Xóa khóa cũ lỗi thì bỏ qua: khóa mới đã có dữ liệu, khóa cũ còn lại vô hại.
+    }
+    return value;
   },
   async setItem(name: string, value: string) {
     try {

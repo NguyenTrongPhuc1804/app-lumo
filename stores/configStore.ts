@@ -68,32 +68,49 @@ async function loadLegacyConfig(): Promise<LegacyConfig | null> {
 // Storage riêng: lần đầu đọc khóa mới mà chưa có thì chuyển từ khóa cũ sang.
 const configStorage = {
   async getItem(name: string) {
+    let legacy: LegacyConfig | null = null;
     try {
       const saved = await AsyncStorage.getItem(name);
       if (saved) return saved;
+      legacy = await loadLegacyConfig();
+    } catch {
+      // Đọc lỗi thì dùng mặc định, app vẫn chạy được.
+      return null;
+    }
+    if (!legacy) return null;
 
-      const legacy = await loadLegacyConfig();
-      if (!legacy) return null;
-
-      const value = JSON.stringify({ state: legacy, version: 0 });
+    const value = JSON.stringify({ state: legacy, version: 0 });
+    try {
       // Ghi khóa mới trước, chỉ xóa khóa cũ khi đã ghi xong.
       await AsyncStorage.setItem(name, value);
+    } catch {
+      // Chưa ghi được khóa mới thì giữ nguyên khóa cũ để lần sau chuyển lại.
+      return null;
+    }
+    try {
       await Promise.all([
         AsyncStorage.removeItem(LEGACY_SETTINGS),
         AsyncStorage.removeItem(LEGACY_ADMIN_KEY),
         AsyncStorage.removeItem(LEGACY_ONBOARDED),
       ]);
-      return value;
     } catch {
-      // Đọc lỗi thì dùng mặc định, app vẫn chạy được.
-      return null;
+      // Xóa khóa cũ lỗi thì bỏ qua: khóa mới đã có dữ liệu, khóa cũ còn lại vô hại.
+    }
+    return value;
+  },
+  async setItem(name: string, value: string) {
+    try {
+      await AsyncStorage.setItem(name, value);
+    } catch {
+      // Ghi lỗi thì thôi, không để promise bị từ chối mà không ai bắt.
     }
   },
-  setItem(name: string, value: string) {
-    return AsyncStorage.setItem(name, value);
-  },
-  removeItem(name: string) {
-    return AsyncStorage.removeItem(name);
+  async removeItem(name: string) {
+    try {
+      await AsyncStorage.removeItem(name);
+    } catch {
+      // Không có gì để làm khi xóa lỗi.
+    }
   },
 };
 

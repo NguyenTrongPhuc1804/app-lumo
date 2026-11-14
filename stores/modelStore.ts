@@ -42,14 +42,16 @@ export const useModelStore = create<ModelState>()((set) => ({
   deletingIds: [],
 
   reloadModels: async () => {
-    const { serverUrl, model, setModel } = useConfigStore.getState();
+    const { serverUrl } = useConfigStore.getState();
     const request = ++modelsRequest;
     set({ modelsLoading: true, modelsError: null });
     try {
       const list = await fetchModels(serverUrl);
       if (request !== modelsRequest) return;
       set({ modelList: list });
-      // Model đang chọn không còn trên server thì chọn model đầu tiên.
+      // Đọc model tại thời điểm này, vì người dùng có thể đã chọn model khác
+      // trong lúc chờ server trả về.
+      const { model, setModel } = useConfigStore.getState();
       if (!list.some((item) => item.code === model)) setModel(list[0]?.code ?? "");
     } catch (err) {
       if (request === modelsRequest) set({ modelsError: messageOf(err) });
@@ -75,6 +77,11 @@ export const useModelStore = create<ModelState>()((set) => ({
   // Giữ trạng thái xóa trong store để không mất khi chuyển tab.
   removeModel: async (id) => {
     if (deleting.has(id)) return null;
+    // Id phải còn trong danh sách của server hiện tại. Nếu người dùng vừa đổi
+    // server, danh sách cũ đã bị xóa nên không gửi id của server cũ đi.
+    if (!useModelStore.getState().customModels.some((item) => item.id === id)) {
+      return "Cấu hình đã thay đổi. Vui lòng thử lại.";
+    }
     const { serverUrl, adminKey } = useConfigStore.getState();
     deleting.add(id);
     set({ deletingIds: [...deleting] });

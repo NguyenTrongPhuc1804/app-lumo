@@ -86,6 +86,28 @@ test('model đã lưu không còn trên server thì chọn model đầu tiên', 
   assert.equal(useConfigStore.getState().model, 'a');
 });
 
+test('model người dùng chọn trong lúc đang tải thì không bị ghi đè', async () => {
+  const pending = [];
+  const { useConfigStore, useModelStore } = loadStores({
+    DEFAULT_MODELS: [],
+    fetchModels: () => new Promise((resolve) => pending.push(resolve)),
+    fetchAdminModels: async () => [],
+    deleteModel: async () => null,
+  });
+  await ready(useConfigStore);
+
+  const request = useModelStore.getState().reloadModels();
+  // Người dùng chọn model khác trong lúc danh sách còn đang tải.
+  useConfigStore.getState().setModel('b');
+  pending[0]([
+    { code: 'a', label: 'A' },
+    { code: 'b', label: 'B' },
+  ]);
+  await request;
+
+  assert.equal(useConfigStore.getState().model, 'b');
+});
+
 test('tải lỗi thì hiện lỗi và tắt loading', async () => {
   const { useConfigStore, useModelStore } = loadStores({
     DEFAULT_MODELS: [],
@@ -135,6 +157,7 @@ test('xóa model: chặn trùng id, đổi server trong lúc chờ thì không t
     },
   });
   await ready(useConfigStore);
+  useModelStore.setState({ customModels: [{ id: 'model-1', name: 'One', code: 'one', baseUrl: '', apiKey: '' }] });
 
   const removing = useModelStore.getState().removeModel('model-1');
   // Copy sang mảng của test vì store chạy trong vm (realm khác).
@@ -162,11 +185,12 @@ test('xóa model: cấu hình không đổi thì tải lại cả hai danh sách
     },
     fetchAdminModels: async () => {
       adminCalls++;
-      return [];
+      return [{ id: 'x', name: 'X', code: 'x', baseUrl: '', apiKey: '' }];
     },
     deleteModel: async () => null,
   });
   await ready(useConfigStore);
+  await useModelStore.getState().reloadAdminModels();
   modelCalls = 0;
   adminCalls = 0;
 
@@ -174,6 +198,26 @@ test('xóa model: cấu hình không đổi thì tải lại cả hai danh sách
 
   assert.equal(modelCalls, 1);
   assert.equal(adminCalls, 1);
+});
+
+test('xóa model: id không còn trong danh sách hiện tại thì không gửi DELETE', async () => {
+  let deleteCalls = 0;
+  const { useConfigStore, useModelStore } = loadStores({
+    DEFAULT_MODELS: [],
+    fetchModels: async () => [],
+    fetchAdminModels: async () => [],
+    deleteModel: async () => {
+      deleteCalls++;
+      return null;
+    },
+  });
+  await ready(useConfigStore);
+
+  // Danh sách của server cũ đã bị xóa khi đổi server, nên id này không còn hợp lệ.
+  const error = await useModelStore.getState().removeModel('model-of-old-server');
+
+  assert.equal(error, 'Cấu hình đã thay đổi. Vui lòng thử lại.');
+  assert.equal(deleteCalls, 0);
 });
 
 test('xóa model: server trả lỗi thì trả về câu lỗi và không tải lại', async () => {
@@ -188,6 +232,7 @@ test('xóa model: server trả lỗi thì trả về câu lỗi và không tải
     deleteModel: async () => 'ADMIN_KEY không hợp lệ',
   });
   await ready(useConfigStore);
+  useModelStore.setState({ customModels: [{ id: 'x', name: 'X', code: 'x', baseUrl: '', apiKey: '' }] });
   modelCalls = 0;
 
   assert.equal(await useModelStore.getState().removeModel('x'), 'ADMIN_KEY không hợp lệ');

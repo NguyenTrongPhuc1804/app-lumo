@@ -38,6 +38,19 @@ test('dữ liệu cũ hỏng thì về sáng và cỡ tự động', async () =>
   assert.equal(s.textSize, 'auto');
 });
 
+test('xóa khóa cũ lỗi thì vẫn giữ dữ liệu đã chuyển', async () => {
+  const storage = memoryStorage({ 'lumo-lens-appearance': '{"colorMode":"dark","textSize":"large"}' });
+  storage.removeItem = async () => {
+    throw new Error('busy');
+  };
+  const load = createLoader({ '@react-native-async-storage/async-storage': { __esModule: true, default: storage } });
+  const { useAppearanceStore } = load('stores/appearanceStore.ts');
+  const s = await loaded(useAppearanceStore);
+
+  assert.equal(s.colorMode, 'dark');
+  assert.equal(s.textSize, 'large');
+});
+
 test('đọc lỗi vẫn hydrated và hiện thông báo', async () => {
   const storage = memoryStorage();
   storage.getItem = async () => {
