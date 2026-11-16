@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import StitchIcon from "./StitchIcon";
+import { useAuthStore } from "../stores/authStore";
 import { useConfigStore } from "../stores/configStore";
 import { useModelStore } from "../stores/modelStore";
 import { useTheme } from "../hooks/useTheme";
@@ -11,7 +12,7 @@ export function ModelForm({ id, onClose, saving, onSavingChange }: { id: string;
   const savingRef = useRef(false);
   const testingRef = useRef(false);
   const serverUrl = useConfigStore((s) => s.serverUrl);
-  const adminKey = useConfigStore((s) => s.adminKey);
+  const token = useAuthStore((s) => s.token) ?? "";
   const setModel = useConfigStore((s) => s.setModel);
   const customModels = useModelStore((s) => s.customModels);
   const reloadAdminModels = useModelStore((s) => s.reloadAdminModels);
@@ -37,7 +38,7 @@ export function ModelForm({ id, onClose, saving, onSavingChange }: { id: string;
   }, [id]);
 
   const apiBase = serverUrl.trim().replace(/\/+$/, "");
-  const adminHeaders = { "Content-Type": "application/json", "x-admin-key": adminKey.trim() };
+  const adminHeaders = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
 
   // Kiem tra baseUrl + apiKey truoc khi luu. Key de trong thi server dung key da luu.
   const handleTest = async () => {
@@ -79,8 +80,8 @@ export function ModelForm({ id, onClose, saving, onSavingChange }: { id: string;
       Alert.alert("Thiếu thông tin", "Vui lòng nhập Tên hiển thị và Mã model.");
       return;
     }
-    if (isNew && !adminKey.trim()) {
-      Alert.alert("Cần ADMIN_KEY", "Nhập ADMIN_KEY trong tab Cài đặt trước khi thêm model.");
+    if (!token) {
+      Alert.alert("Cần đăng nhập", "Đăng nhập bằng tài khoản quản trị trước khi thêm model.");
       return;
     }
 

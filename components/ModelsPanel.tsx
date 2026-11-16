@@ -11,7 +11,6 @@ export default function ModelsPanel({ onOpenForm }: { onOpenForm: (id: string) =
   const { styles, ACCENT, ACCENT_ON, DANGER, TEXT_DIM, TEXT_MUTED } = useTheme();
   const [query, setQuery] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const adminKey = useConfigStore((s) => s.adminKey);
   const model = useConfigStore((s) => s.model);
   const setModel = useConfigStore((s) => s.setModel);
   const customModels = useModelStore((s) => s.customModels);
@@ -76,9 +75,7 @@ export default function ModelsPanel({ onOpenForm }: { onOpenForm: (id: string) =
         ) : null}
         {customModels.length === 0 ? (!adminModelsLoading && !adminModelsError ? (
           <Text allowFontScaling={false} style={styles.emptyText}>
-            {adminKey.trim()
-              ? 'Server chưa có model nào. Nhấn "+ Thêm Model" để tạo.'
-              : "Nhập ADMIN_KEY trong tab Cài đặt để xem và sửa danh sách model trên server."}
+            Server chưa có model nào. Nhấn "+ Thêm" để tạo model đầu tiên.
           </Text>
         ) : null) : (
           visibleModels.map((item) => {

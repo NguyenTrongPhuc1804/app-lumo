@@ -18,8 +18,6 @@ export default function SettingsPanel() {
   const storageError = useAppearanceStore((s) => s.storageError);
   const serverUrl = useConfigStore((s) => s.serverUrl);
   const setServerUrl = useConfigStore((s) => s.setServerUrl);
-  const adminKey = useConfigStore((s) => s.adminKey);
-  const setAdminKey = useConfigStore((s) => s.setAdminKey);
   const hasOverlayPermission = useServiceStore((s) => s.hasOverlayPermission);
   const reloadModels = useModelStore((s) => s.reloadModels);
   const modelsLoading = useModelStore((s) => s.modelsLoading);
@@ -91,21 +89,9 @@ export default function SettingsPanel() {
       </View>
 
       <View style={styles.card}>
-        <Text allowFontScaling={false} style={styles.caption}>Quản trị</Text>
-        <View style={styles.iconLabel}><StitchIcon name="key" color={ACCENT} /><Text allowFontScaling={false} style={[styles.sectionTitle, { flex: 1 }]}>Khoá quản trị (ADMIN_KEY)</Text></View>
-        <TextInput
-          allowFontScaling={false}
-          style={styles.input}
-          value={adminKey}
-          onChangeText={setAdminKey}
-          autoCapitalize="none"
-          autoCorrect={false}
-          secureTextEntry
-          placeholder="Nhập ADMIN_KEY của server"
-          placeholderTextColor={TEXT_MUTED}
-          accessibilityLabel="Khoá quản trị ADMIN_KEY"
-        />
-        <Text allowFontScaling={false} style={styles.hint}>Phải trùng ADMIN_KEY trong .env của server. Dùng để thêm, sửa, xóa model.</Text>
+        <Text allowFontScaling={false} style={styles.caption}>Tài khoản</Text>
+        <View style={styles.iconLabel}><StitchIcon name="dns" color={ACCENT} /><Text allowFontScaling={false} style={[styles.sectionTitle, { flex: 1 }]}>Quản lý model</Text></View>
+        <Text allowFontScaling={false} style={styles.hint}>Chỉ tài khoản quản trị mới thấy tab Model AI và thêm, sửa, xoá được model. Không còn dùng ADMIN_KEY trong app.</Text>
       </View>
     </ScrollView>
   );

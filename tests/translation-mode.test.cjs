@@ -6,6 +6,7 @@ const ts = require('typescript');
 
 test('HomePanel selects Manga and starts with selected mode', async () => {
   const settings = { translationMode: 'game', model: 'test', modelList: [], customModels: [], serverUrl: 'http://local', sourceLang: 'en', targetLang: 'vi', hasOverlayPermission: true };
+  settings.token = 'test-token';
   settings.setTranslationMode = value => settings.translationMode = value;
   settings.setRunning = value => settings.running = value;
   let started;
@@ -16,6 +17,7 @@ test('HomePanel selects Manga and starts with selected mode', async () => {
     if (name === 'react-native') return { Pressable: 'Pressable', View: 'View', Text: 'Text' };
     if (name === 'react-native-reanimated') return { __esModule: true, default: { createAnimatedComponent: () => 'AnimatedButton' }, useSharedValue: value => ({ value }), useAnimatedStyle: () => ({}) };
     if (name === '../stores/configStore') return { useConfigStore: (select) => select(settings) };
+    if (name === '../stores/authStore') return { useAuthStore: (select) => select(settings) };
     if (name === '../stores/modelStore') return { useModelStore: (select) => select(settings) };
     if (name === '../stores/serviceStore') return { useServiceStore: (select) => select(settings) };
     if (name === '../hooks/useTheme') return { useTheme: () => ({ styles: {}, ACCENT: 'green', TEXT_DIM: 'gray' }) };

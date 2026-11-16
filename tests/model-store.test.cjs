@@ -3,15 +3,22 @@ const assert = require('node:assert/strict');
 const { createLoader, memoryStorage, waitFor } = require('./helpers/load-ts.cjs');
 
 // Nạp configStore và modelStore từ cùng một loader để chúng dùng chung một store.
-function loadStores(api) {
+function loadStores(api, token = "test-token") {
   const storage = memoryStorage();
+  const secure = {
+    data: new Map(token ? [["lumo-lens-token", token]] : []),
+    async getItemAsync(key) { return this.data.has(key) ? this.data.get(key) : null; },
+    async setItemAsync(key, value) { this.data.set(key, value); },
+    async deleteItemAsync(key) { this.data.delete(key); },
+  };
   const load = createLoader({
     '@react-native-async-storage/async-storage': { __esModule: true, default: storage },
-    '../lib/api': api,
+    'expo-secure-store': secure,
+    '../lib/api': { fetchMe: async () => null, ...api },
   });
   const { useConfigStore } = load('stores/configStore.ts');
   const { useModelStore } = load('stores/modelStore.ts');
-  return { useConfigStore, useModelStore };
+  return { useConfigStore, useModelStore, secure };
 }
 
 async function ready(useConfigStore) {

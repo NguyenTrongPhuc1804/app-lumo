@@ -20,7 +20,7 @@ async function loaded(useConfigStore) {
   return useConfigStore.getState();
 }
 
-test('chép dữ liệu từ 3 khóa cũ sang khóa mới rồi xóa khóa cũ', async () => {
+test('chép dữ liệu từ khóa cũ sang khóa mới, xóa cả khóa admin cũ', async () => {
   const { useConfigStore, storage } = loadConfig({
     'lumo-lens-settings': JSON.stringify({ serverUrl: 'http://old', sourceLang: 'ja', targetLang: 'vi', model: 'm1' }),
     'lumo-lens-admin-key': 'secret',
@@ -32,9 +32,10 @@ test('chép dữ liệu từ 3 khóa cũ sang khóa mới rồi xóa khóa cũ',
   assert.equal(s.sourceLang, 'ja');
   assert.equal(s.targetLang, 'vi');
   assert.equal(s.model, 'm1');
-  assert.equal(s.adminKey, 'secret');
-  assert.equal(s.onboarded, true);
   assert.equal(s.translationMode, 'game');
+  // adminKey và onboarded không còn tồn tại trong store
+  assert.equal('adminKey' in s, false);
+  assert.equal('onboarded' in s, false);
 
   assert.ok(storage.data.has(CONFIG_KEY), 'phải ghi khóa mới');
   assert.equal(storage.data.has('lumo-lens-settings'), false);
@@ -47,11 +48,9 @@ test('storage trống thì dùng giá trị mặc định và env', async () => 
   const s = await loaded(useConfigStore);
 
   assert.equal(s.serverUrl, 'http://env');
-  assert.equal(s.adminKey, '');
   assert.equal(s.sourceLang, 'en');
   assert.equal(s.targetLang, 'vi');
   assert.equal(s.model, '');
-  assert.equal(s.onboarded, false);
 });
 
 test('dữ liệu cũ hỏng thì dùng mặc định, không lỗi', async () => {
@@ -124,8 +123,9 @@ test('xóa khóa cũ lỗi thì vẫn giữ dữ liệu đã chuyển', async ()
   const s = await loaded(useConfigStore);
 
   assert.equal(s.serverUrl, 'http://old');
-  assert.equal(s.adminKey, 'secret');
   assert.equal(s.model, 'm1');
+  // Không còn chuyển adminKey sang store mới dù khóa cũ chưa xóa được.
+  assert.equal('adminKey' in s, false);
 });
 
 test('lưu translationMode nhưng không lưu hydrated', async () => {

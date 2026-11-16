@@ -113,10 +113,7 @@ export async function startTranslator(config: {
   model: string;
   accentColor: string;
 }): Promise<boolean> {
-  return await ScreenTranslator.start({
-    ...config,
-    appKey: process.env.EXPO_PUBLIC_APP_KEY ?? "",
-  });
+  return await ScreenTranslator.start(config);
 }
 
 export function stopTranslator() {

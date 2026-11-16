@@ -4,6 +4,7 @@ import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, Text, View } fr
 import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withSpring, withTiming } from "react-native-reanimated";
 import { LANGS, labelOf, startTranslator, stopTranslator } from "../lib/api";
 import { useConfigStore } from "../stores/configStore";
+import { useAuthStore } from "../stores/authStore";
 import { useModelStore } from "../stores/modelStore";
 import { useServiceStore } from "../stores/serviceStore";
 import { useTheme } from "../hooks/useTheme";
@@ -26,6 +27,7 @@ function GestureRow({ name, action, last }: { name: string; action: string; last
 export default function HomePanel({ onManageModels }: { onManageModels: () => void }) {
   const { styles, ACCENT, ACCENT_ON, TEXT_DIM } = useTheme();
   const serverUrl = useConfigStore((s) => s.serverUrl);
+  const token = useAuthStore((s) => s.token);
   const sourceLang = useConfigStore((s) => s.sourceLang);
   const targetLang = useConfigStore((s) => s.targetLang);
   const model = useConfigStore((s) => s.model);
@@ -79,8 +81,13 @@ export default function HomePanel({ onManageModels }: { onManageModels: () => vo
       Alert.alert("Thiếu địa chỉ server", "Vào tab Cài đặt để nhập địa chỉ server trước khi bắt đầu.");
       return;
     }
+    // Chưa đăng nhập thì server sẽ từ chối; báo ngay để người dùng biết đường.
+    if (!token) {
+      Alert.alert("Cần đăng nhập", "Đăng nhập tài khoản trước khi bật dịch màn hình.");
+      return;
+    }
 
-    const granted = await startTranslator({ serverUrl, sourceLang, targetLang, model, mode: translationMode, accentColor: "#BDB5FF" });
+    const granted = await startTranslator({ serverUrl, token, sourceLang, targetLang, model, mode: translationMode, accentColor: "#BDB5FF" });
     if (granted) {
       setRunning(true);
     } else {

@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { DEFAULT_MODELS, deleteModel, fetchAdminModels, fetchModels, type CustomModel } from "../lib/api";
+import { useAuthStore } from "./authStore";
 import { useConfigStore } from "./configStore";
 
 type ModelOption = { code: string; label: string };
@@ -61,11 +62,20 @@ export const useModelStore = create<ModelState>()((set) => ({
   },
 
   reloadAdminModels: async () => {
-    const { serverUrl, adminKey } = useConfigStore.getState();
+    // Danh sách đầy đủ giờ cần token của tài khoản admin, không còn ADMIN_KEY.
+    const { serverUrl } = useConfigStore.getState();
+    const token = useAuthStore.getState().token ?? "";
     const request = ++adminRequest;
+
+    // Người thường và khách chưa đăng nhập không cần gọi server.
+    if (!token) {
+      set({ customModels: [], adminModelsLoading: false, adminModelsError: null });
+      return;
+    }
+
     set({ adminModelsLoading: true, adminModelsError: null });
     try {
-      const list = await fetchAdminModels(serverUrl, adminKey);
+      const list = await fetchAdminModels(serverUrl, token);
       if (request === adminRequest) set({ customModels: list });
     } catch (err) {
       if (request === adminRequest) set({ adminModelsError: messageOf(err) });
@@ -82,15 +92,16 @@ export const useModelStore = create<ModelState>()((set) => ({
     if (!useModelStore.getState().customModels.some((item) => item.id === id)) {
       return "Cấu hình đã thay đổi. Vui lòng thử lại.";
     }
-    const { serverUrl, adminKey } = useConfigStore.getState();
+    const { serverUrl } = useConfigStore.getState();
+    const token = useAuthStore.getState().token ?? "";
     deleting.add(id);
     set({ deletingIds: [...deleting] });
     try {
-      const error = await deleteModel(serverUrl, adminKey, id);
+      const error = await deleteModel(serverUrl, token, id);
       if (error) return error;
       // Cấu hình đã đổi trong lúc chờ thì bỏ qua; useAppSync sẽ tự tải lại.
       const current = useConfigStore.getState();
-      if (current.serverUrl !== serverUrl || current.adminKey !== adminKey) return null;
+      if (current.serverUrl !== serverUrl || (useAuthStore.getState().token ?? "") !== token) return null;
       await Promise.all([useModelStore.getState().reloadAdminModels(), useModelStore.getState().reloadModels()]);
       return null;
     } finally {

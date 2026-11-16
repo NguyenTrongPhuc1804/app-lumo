@@ -10,35 +10,30 @@ const LEGACY_ONBOARDED = "lumo-lens-onboarded";
 
 type ConfigState = {
   serverUrl: string;
-  adminKey: string;
   sourceLang: string;
   targetLang: string;
   translationMode: "game" | "manga";
   model: string;
-  onboarded: boolean;
   hydrated: boolean; // true khi đã đọc xong dữ liệu đã lưu
 
   setServerUrl: (value: string) => void;
-  setAdminKey: (value: string) => void;
   chooseLanguage: (forWhich: "source" | "target", code: string) => void;
   swapLanguages: () => void;
   setModel: (code: string) => void;
   setTranslationMode: (value: "game" | "manga") => void;
-  finishOnboarding: () => void;
 };
 
 type LegacyConfig = {
   serverUrl?: string;
-  adminKey?: string;
   sourceLang?: string;
   targetLang?: string;
   model?: string;
-  onboarded?: boolean;
 };
 
-// Đọc 3 khóa của bản cũ. Không có gì dùng được thì trả về null.
+// Đọc các khóa của bản cũ. Không có gì dùng được thì trả về null.
+// Không còn chuyển adminKey/onboarded vì app đã dùng đăng nhập thay thế.
 async function loadLegacyConfig(): Promise<LegacyConfig | null> {
-  const [settingsRaw, adminKey, onboardedRaw] = await Promise.all([
+  const [settingsRaw] = await Promise.all([
     AsyncStorage.getItem(LEGACY_SETTINGS),
     AsyncStorage.getItem(LEGACY_ADMIN_KEY),
     AsyncStorage.getItem(LEGACY_ONBOARDED),
@@ -59,8 +54,6 @@ async function loadLegacyConfig(): Promise<LegacyConfig | null> {
   if (typeof settings.sourceLang === "string" && settings.sourceLang) config.sourceLang = settings.sourceLang;
   if (typeof settings.targetLang === "string" && settings.targetLang) config.targetLang = settings.targetLang;
   if (typeof settings.model === "string" && settings.model) config.model = settings.model;
-  if (adminKey) config.adminKey = adminKey;
-  if (onboardedRaw === "yes") config.onboarded = true;
 
   return Object.keys(config).length > 0 ? config : null;
 }
@@ -88,6 +81,7 @@ const configStorage = {
       return null;
     }
     try {
+      // Luôn dọn khóa admin cũ: đó là bí mật nằm trên máy, không dùng nữa.
       await Promise.all([
         AsyncStorage.removeItem(LEGACY_SETTINGS),
         AsyncStorage.removeItem(LEGACY_ADMIN_KEY),
@@ -114,23 +108,29 @@ const configStorage = {
   },
 };
 
+// Dọn khóa admin còn sót từ bản cũ, kể cả khi khóa cấu hình mới đã tồn tại.
+async function clearLegacyAdminKey() {
+  try {
+    await AsyncStorage.removeItem(LEGACY_ADMIN_KEY);
+  } catch {
+    // Bỏ qua: khóa cũ chỉ nằm trên máy, không dùng ở đâu nữa.
+  }
+}
+clearLegacyAdminKey();
+
 export const useConfigStore = create<ConfigState>()(
   persist(
     (set, get) => ({
       serverUrl: process.env.EXPO_PUBLIC_SERVER_URL ?? "",
-      adminKey: process.env.EXPO_PUBLIC_ADMIN_KEY ?? "",
       sourceLang: "en",
       targetLang: "vi",
       translationMode: "game",
       model: "",
-      onboarded: false,
       hydrated: false,
 
       setServerUrl: (value) => set({ serverUrl: value }),
-      setAdminKey: (value) => set({ adminKey: value }),
       setModel: (code) => set({ model: code }),
       setTranslationMode: (value) => set({ translationMode: value }),
-      finishOnboarding: () => set({ onboarded: true }),
 
       // Chọn ngôn ngữ. Chọn trùng ngôn ngữ bên kia thì hoán đổi hai bên.
       chooseLanguage: (forWhich, code) => {
@@ -155,12 +155,10 @@ export const useConfigStore = create<ConfigState>()(
       // Chỉ lưu cấu hình người dùng chọn, không lưu cờ và hàm.
       partialize: (state) => ({
         serverUrl: state.serverUrl,
-        adminKey: state.adminKey,
         sourceLang: state.sourceLang,
         targetLang: state.targetLang,
         translationMode: state.translationMode,
         model: state.model,
-        onboarded: state.onboarded,
       }),
       onRehydrateStorage: () => () => {
         // Chạy sau khi đọc xong (kể cả khi lỗi) để màn hình biết có thể vẽ.

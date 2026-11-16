@@ -87,7 +87,8 @@ class TranslatorService : Service() {
 
   // Cau hinh nhan tu JS
   private var serverUrl = ""
-  private var appKey = ""
+  // Token dang nhap; gui kem header Authorization thay cho app key
+  private var token = ""
   private var sourceLang = "en"
   private var targetLang = "vi"
   private var model = ""
@@ -152,7 +153,9 @@ class TranslatorService : Service() {
   private fun isCurrentWork(id: Long, generation: Long?): Boolean =
     !destroyed && id == workId && (generation == null || autoState.isCurrent(generation))
 
-  fun updateConfig(newMode: String, newSourceLang: String, newTargetLang: String, newModel: String) {
+  fun updateConfig(newMode: String, newSourceLang: String, newTargetLang: String, newModel: String, newToken: String = "") {
+    // Token moi co hieu luc ngay, ke ca khi cac cau hinh khac khong doi.
+    if (newToken.isNotEmpty()) token = newToken
     val safeMode = if (newMode == "manga") "manga" else "game"
     if (mode == safeMode && sourceLang == newSourceLang && targetLang == newTargetLang && model == newModel) return
     workId++
@@ -207,7 +210,7 @@ class TranslatorService : Service() {
 
     instance = this
     serverUrl = intent.getStringExtra("serverUrl")?.trimEnd('/') ?: ""
-    appKey = intent.getStringExtra("appKey") ?: ""
+    token = intent.getStringExtra("token") ?: ""
     sourceLang = intent.getStringExtra("sourceLang") ?: "en"
     targetLang = intent.getStringExtra("targetLang") ?: "vi"
     model = intent.getStringExtra("model") ?: ""
@@ -1059,12 +1062,15 @@ class TranslatorService : Service() {
     val connection = URL("$serverUrl/api/translate").openConnection() as HttpURLConnection
     connection.requestMethod = "POST"
     connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
-    connection.setRequestProperty("x-app-key", appKey)
+    connection.setRequestProperty("Authorization", "Bearer $token")
     connection.connectTimeout = 10000
     connection.readTimeout = 40000
     connection.doOutput = true
     try {
       connection.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
+      if (connection.responseCode == 401) {
+        throw Exception("Phiên đăng nhập đã hết hạn, mở app để đăng nhập lại")
+      }
       if (connection.responseCode != 200) {
         throw Exception("server trả về ${connection.responseCode}")
       }

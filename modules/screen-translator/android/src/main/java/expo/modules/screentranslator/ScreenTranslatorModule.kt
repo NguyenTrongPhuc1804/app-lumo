@@ -17,7 +17,8 @@ import expo.modules.kotlin.records.Record
 // Du lieu JS gui xuong khi bam "Bat dau"
 class StartOptions : Record {
   @Field val serverUrl: String = ""
-  @Field val appKey: String = ""
+  // Token dang nhap cua tai khoan. Thay cho appKey cu.
+  @Field val token: String = ""
   @Field val sourceLang: String = "en"
   @Field val targetLang: String = "vi"
   @Field val accentColor: String = "#14B8A6"
@@ -70,7 +71,7 @@ class ScreenTranslatorModule : Module() {
 
     Function("updateConfig") { options: StartOptions ->
       android.os.Handler(android.os.Looper.getMainLooper()).post {
-        TranslatorService.instance?.updateConfig(options.mode, options.sourceLang, options.targetLang, options.model)
+        TranslatorService.instance?.updateConfig(options.mode, options.sourceLang, options.targetLang, options.model, options.token)
       }
     }
 
@@ -96,7 +97,7 @@ class ScreenTranslatorModule : Module() {
         .putExtra("resultCode", payload.resultCode)
         .putExtra("resultData", payload.data)
         .putExtra("serverUrl", options.serverUrl)
-        .putExtra("appKey", options.appKey)
+        .putExtra("token", options.token)
         .putExtra("sourceLang", options.sourceLang)
         .putExtra("targetLang", options.targetLang)
         .putExtra("accentColor", options.accentColor)

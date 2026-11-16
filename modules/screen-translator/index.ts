@@ -7,12 +7,14 @@ export type TranslatorConfig = {
   sourceLang: string;
   targetLang: string;
   model: string;
+  // Token dang nhap, gui kem moi request dich
+  token?: string;
 };
 
 export type StartOptions = {
   mode?: TranslationMode;
   serverUrl: string; // vi du: http://192.168.1.10:3000
-  appKey: string;
+  token: string;
   sourceLang: string; // en | zh | ja | ko
   targetLang: string; // vi | en | zh | ja | ko
   accentColor: string; // mau nut noi, vi du #14B8A6
