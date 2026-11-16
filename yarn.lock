@@ -2163,6 +2163,11 @@ expo-router@*, expo-router@~58.0.29:
     sf-symbols-typescript "^2.1.0"
     standard-navigation "^0.0.5"
 
+expo-secure-store@~58.0.2:
+  version "58.0.3"
+  resolved "https://registry.npmjs.org/expo-secure-store/-/expo-secure-store-58.0.3.tgz"
+  integrity sha512-RpubZfqJREEcwKbx3HFoWbtDd31t+yESMj7Ei5/mGQp5vViwUBzL4nUCZRLFyt+O690mT8We7dDtIUZeIk6LbQ==
+
 expo-server@^58.0.6:
   version "58.0.6"
   resolved "https://registry.npmjs.org/expo-server/-/expo-server-58.0.6.tgz"
@@ -2177,6 +2182,11 @@ expo-updates-interface@~58.0.1:
   version "58.0.1"
   resolved "https://registry.npmjs.org/expo-updates-interface/-/expo-updates-interface-58.0.1.tgz"
   integrity sha512-OF+3BtMXtUsXWDfpHVNus9yHpx7WjMwjxDfeeN9LQBYSq/UtYmNNHBSfzChYTuqljWFSOAHRfsDykV9EB73Wlg==
+
+expo-web-browser@~58.0.7:
+  version "58.0.8"
+  resolved "https://registry.npmjs.org/expo-web-browser/-/expo-web-browser-58.0.8.tgz"
+  integrity sha512-x/+50mE/F9QtZtCqLEW+fry82IesI1DBKpN2jy8zUnN1bt1J7wGzs3vq5f3riiBVMFEPnajrGVaTKk7CKE1xKw==
 
 expo@*, expo@~58.0.22:
   version "58.0.22"

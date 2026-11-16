@@ -26,6 +26,40 @@ export const DEFAULT_MODELS = [
 
 const apiBase = (url: string) => url.trim().replace(/\/+$/, "");
 
+// Thong tin tai khoan tra ve tu GET /api/me
+export type AuthUser = {
+  id: string;
+  email: string;
+  name: string;
+  avatar: string;
+  role: "user" | "admin";
+  plan: string;
+  isAdmin: boolean;
+  dailyLimit: number;
+  usageCount: number;
+  usageDate: string;
+};
+
+// Loi 401 nghia la phien het han; 403 nghia la khong du quyen.
+// App dua vao cau chu nay de biet co phai dang xuat hay khong.
+function authError(status: number, data: any): string {
+  if (status === 401) return "Phiên đăng nhập đã hết hạn";
+  if (status === 403) return data?.error || "Tài khoản không có quyền thực hiện thao tác này";
+  return data?.error || `Server trả về ${status}`;
+}
+
+const authHeaders = (token: string) => ({ "Content-Type": "application/json", Authorization: `Bearer ${token}` });
+
+// Thong tin tai khoan dang dang nhap, kem han muc con lai
+export async function fetchMe(url: string, token: string): Promise<AuthUser> {
+  if (!apiBase(url)) throw new Error("Chưa cấu hình địa chỉ server");
+  const res = await fetch(`${apiBase(url)}/api/me`, { headers: authHeaders(token) });
+  const data = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(authError(res.status, data));
+  if (!data || typeof data !== "object") throw new Error("Thông tin tài khoản không hợp lệ.");
+  return data as AuthUser;
+}
+
 export const labelOf = (code: string) => LANGS.find((lang) => lang.code === code)?.label ?? code;
 
 type ModelOption = { code: string; label: string };
@@ -43,30 +77,27 @@ export async function fetchModels(url: string): Promise<ModelOption[]> {
   return data.map((item: any) => ({ code: item.code, label: item.name || item.code }));
 }
 
-// Danh sach day du cho man CRUD (can x-admin-key)
-export async function fetchAdminModels(url: string, adminKey: string): Promise<CustomModel[]> {
-  if (!adminKey.trim()) throw new Error("Nhập ADMIN_KEY trong tab Cài đặt để xem danh sách model.");
+// Danh sach day du cho man CRUD (can token cua tai khoan admin)
+export async function fetchAdminModels(url: string, token: string): Promise<CustomModel[]> {
+  if (!token.trim()) throw new Error("Cần đăng nhập bằng tài khoản quản trị để xem danh sách model.");
   if (!apiBase(url)) throw new Error("Nhập địa chỉ server trong tab Cài đặt.");
-  const res = await fetch(`${apiBase(url)}/api/admin/models`, {
-    headers: { "Content-Type": "application/json", "x-admin-key": adminKey.trim() },
-  });
-  if (res.status === 401) throw new Error("ADMIN_KEY không hợp lệ. Kiểm tra lại trong tab Cài đặt.");
+  const res = await fetch(`${apiBase(url)}/api/admin/models`, { headers: authHeaders(token) });
   const data = await res.json().catch(() => null);
-  if (!res.ok) throw new Error(data?.error || `Server trả về ${res.status}`);
+  if (!res.ok) throw new Error(authError(res.status, data));
   if (!Array.isArray(data)) throw new Error("Danh sách model không hợp lệ.");
   return data;
 }
 
 // Xoa model tren server. Tra ve thong bao loi, null neu thanh cong.
-export async function deleteModel(serverUrl: string, adminKey: string, id: string): Promise<string | null> {
+export async function deleteModel(serverUrl: string, token: string, id: string): Promise<string | null> {
   try {
     const res = await fetch(`${apiBase(serverUrl)}/api/admin/models/${id}`, {
       method: "DELETE",
-      headers: { "Content-Type": "application/json", "x-admin-key": adminKey.trim() },
+      headers: authHeaders(token),
     });
     if (res.ok) return null;
     const data = await res.json().catch(() => ({}));
-    return data.error || `Server trả về ${res.status}`;
+    return authError(res.status, data);
   } catch (err: any) {
     return err.message;
   }
@@ -76,6 +107,7 @@ export async function deleteModel(serverUrl: string, adminKey: string, id: strin
 export async function startTranslator(config: {
   mode?: "game" | "manga";
   serverUrl: string;
+  token: string;
   sourceLang: string;
   targetLang: string;
   model: string;
