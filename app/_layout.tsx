@@ -1,8 +1,10 @@
 import { BeVietnamPro_400Regular, BeVietnamPro_500Medium, BeVietnamPro_700Bold, useFonts } from "@expo-google-fonts/be-vietnam-pro";
-import { Stack } from "expo-router";
+import { Stack, router, useSegments } from "expo-router";
+import { useEffect } from "react";
 import { StatusBar } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { useAppearanceStore } from "../stores/appearanceStore";
+import { useAuthStore } from "../stores/authStore";
 import { useConfigStore } from "../stores/configStore";
 import { useAppSync } from "../hooks/useAppSync";
 import { useTheme } from "../hooks/useTheme";
@@ -16,8 +18,10 @@ export default function RootLayout() {
   // Cho doc xong du lieu da luu de khong hien nham che do sang roi doi sang toi
   const configReady = useConfigStore((s) => s.hydrated);
   const appearanceReady = useAppearanceStore((s) => s.hydrated);
+  // Cho biet da co token hay chua, de khong nhay vao tab roi bat dang nhap
+  const authReady = useAuthStore((s) => s.hydrated);
 
-  if (!fontsLoaded || !configReady || !appearanceReady) return null;
+  if (!fontsLoaded || !configReady || !appearanceReady || !authReady) return null;
 
   return (
     <SafeAreaProvider>
@@ -29,8 +33,19 @@ export default function RootLayout() {
 function AppNavigation() {
   const { BACKGROUND } = useTheme();
   const colorMode = useAppearanceStore((s) => s.colorMode);
+  const token = useAuthStore((s) => s.token);
+  const segments = useSegments();
   // Dong bo cau hinh native, tai danh sach model va trang thai quyen
   useAppSync();
+
+  // Chua dang nhap thi vao thang man dang nhap. Man /auth phai duoc phep
+  // chay truoc khi co token, neu khong se lap vong.
+  useEffect(() => {
+    if (token) return;
+    const current = segments.join("/");
+    if (current === "login" || current === "auth") return;
+    router.replace("/login");
+  }, [token, segments]);
 
   return (
     <>

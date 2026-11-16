@@ -48,6 +48,34 @@ export function createTheme(dark: boolean, scale: number, width: number) {
   modelRadio: { width: 24, height: 24, borderRadius: 12, borderWidth: 1, borderColor: BORDER, alignItems: "center", justifyContent: "center" },
   modelDetails: { borderTopWidth: 1, borderTopColor: BORDER, paddingTop: 12, gap: 10 },
 
+  // Man dang nhap
+  loginHero: { backgroundColor: CARD, borderColor: BORDER, borderWidth: 1, borderRadius: RADIUS, padding: 18, gap: 8 },
+  loginTitle: { color: TEXT, fontSize: 22, lineHeight: 30, fontFamily: FONT_BOLD },
+  loginSubtitle: { color: TEXT_MUTED, fontSize: 13, lineHeight: 20, fontFamily: FONT },
+  socialButton: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, minHeight: 52, borderRadius: RADIUS_SM, borderWidth: 1, borderColor: BORDER, backgroundColor: CARD, paddingHorizontal: 16 },
+  socialButtonFacebook: { backgroundColor: "#1877F2", borderColor: "#1877F2" },
+  socialButtonText: { color: TEXT, fontSize: 15, fontFamily: FONT_BOLD },
+  socialButtonTextOnColor: { color: "#FFFFFF", fontSize: 15, fontFamily: FONT_BOLD },
+  socialDot: { width: 22, height: 22, borderRadius: 11, alignItems: "center", justifyContent: "center" },
+  loginDivider: { flexDirection: "row", alignItems: "center", gap: 10 },
+  loginDividerLine: { flex: 1, height: 1, backgroundColor: BORDER },
+  legalText: { color: TEXT_MUTED, fontSize: 11, lineHeight: 17, textAlign: "center", fontFamily: FONT },
+
+  // Man tai khoan
+  accountCard: { backgroundColor: CARD, borderColor: BORDER, borderWidth: 1, borderRadius: RADIUS, padding: 18, gap: 14, alignItems: "center" },
+  accountAvatarRing: { width: 76, height: 76, borderRadius: 38, padding: 3, backgroundColor: ACCENT, alignItems: "center", justifyContent: "center" },
+  accountAvatar: { width: 70, height: 70, borderRadius: 35, backgroundColor: CARD_ALT, alignItems: "center", justifyContent: "center" },
+  accountAvatarText: { color: ACCENT, fontSize: 24, fontFamily: FONT_BOLD },
+  accountName: { color: TEXT, fontSize: 20, fontFamily: FONT_BOLD, textAlign: "center" },
+  accountEmail: { color: TEXT_MUTED, fontSize: 13, fontFamily: FONT, textAlign: "center" },
+  quotaTrack: { height: 8, borderRadius: 4, backgroundColor: CARD_ALT, overflow: "hidden", alignSelf: "stretch" },
+  quotaFill: { height: 8, borderRadius: 4, backgroundColor: ACCENT },
+  accountRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10, paddingVertical: 12, minHeight: 48 },
+  accountRowLabel: { color: TEXT_DIM, fontSize: 13, fontFamily: FONT },
+  accountRowValue: { color: TEXT, fontSize: 14, fontFamily: FONT_MEDIUM, flexShrink: 1, textAlign: "right" },
+  dangerButton: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, minHeight: 52, borderRadius: RADIUS_SM, borderWidth: 1, borderColor: "#FECDD3", backgroundColor: "#FFF1F2" },
+  dangerButtonText: { color: "#E11D48", fontSize: 15, fontFamily: FONT_BOLD },
+
   // Man gioi thieu
   onboardBody: { flexGrow: 1, justifyContent: "flex-start", paddingHorizontal: 20, gap: 20 },
   stepBadge: { alignSelf: "center", color: TEXT, backgroundColor: CARD_ALT, paddingVertical: 6, paddingHorizontal: 14, borderRadius: RADIUS_SM, fontSize: 13, fontFamily: FONT_MEDIUM, overflow: "hidden" },
