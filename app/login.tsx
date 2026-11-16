@@ -1,40 +1,39 @@
 import * as WebBrowser from "expo-web-browser";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { Alert, Image, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { Alert, Image, Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { describeAuthError } from "../lib/auth-link";
-import { AUTH_DEEP_LINK } from "../lib/auth-link";
-import { useConfigStore } from "../stores/configStore";
+import { AUTH_DEEP_LINK, describeAuthError, parseAuthLink } from "../lib/auth-link";
 import { decideAuthAction } from "../lib/auth-route";
-import { parseAuthLink } from "../lib/auth-link";
 import { useAuthStore } from "../stores/authStore";
+import { useConfigStore } from "../stores/configStore";
 import { useTheme } from "../hooks/useTheme";
 import StitchIcon from "../components/StitchIcon";
+import { GoogleMark, FacebookMark } from "../components/BrandMarks";
 
 // Mo trang dang nhap cua server trong trinh duyet he thong.
-// Server se tu chuyen sang Google roi quay ve app qua deep link.
+// Server tu chuyen sang Google roi quay ve app qua deep link.
 function authUrl(serverUrl: string, provider: "google" | "facebook") {
   return `${serverUrl.trim().replace(/\/+$/, "")}/api/auth/${provider}/start`;
 }
 
+const PERKS = [
+  "Đồng bộ cấu hình model và hạn mức dịch trên mọi thiết bị",
+  "Token lưu trong kho bảo mật của máy, không lưu mật khẩu",
+  "Dùng nút dịch nổi trên mọi ứng dụng, không cần chuyển app",
+];
+
 export default function LoginScreen() {
-  const { styles, ACCENT, TEXT_MUTED } = useTheme();
+  const { styles, ACCENT } = useTheme();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ error?: string }>();
   const serverUrl = useConfigStore((s) => s.serverUrl);
-  const setServerUrl = useConfigStore((s) => s.setServerUrl);
   const error = useAuthStore((s) => s.error);
   const completeLogin = useAuthStore((s) => s.completeLogin);
   const [opening, setOpening] = useState(false);
-  const [serverUrlInput, setServerUrlInput] = useState(serverUrl);
+  const [localError, setLocalError] = useState<string | null>(null);
   const busy = useRef(false);
 
-  // Ghi địa chỉ server đã sửa vào store. Gọi khi rời ô nhập để không ghi mỗi lần gõ.
-  const commitServerUrl = () => setServerUrl(serverUrlInput.trim());
-
-  // Thong bao loi tu deep link hoac tu lan dang nhap truoc
-  const [localError, setLocalError] = useState<string | null>(null);
   const message = localError ?? describeAuthError(params.error ?? null) ?? error;
 
   useEffect(() => {
@@ -47,24 +46,20 @@ export default function LoginScreen() {
       Alert.alert("Sắp có", "Đăng nhập Facebook sẽ được bật sau. Hiện tại hãy dùng Google.");
       return;
     }
-    if (!serverUrlInput.trim()) {
-      Alert.alert("Thiếu địa chỉ server", "Nhập địa chỉ server ở cuối màn hình trước khi đăng nhập.");
+    if (!serverUrl.trim()) {
+      Alert.alert("Chưa cấu hình server", "Đăng nhập cần địa chỉ server. Cài đặt trong mã nguồn trước khi build, hoặc liên hệ quản trị viên.");
       return;
     }
-    commitServerUrl();
 
     busy.current = true;
     setOpening(true);
     setLocalError(null);
     try {
-      // openAuthSessionAsync tu dong dong trinh duyet khi app duoc mo lai bang deep link.
-      const result = await WebBrowser.openAuthSessionAsync(authUrl(serverUrlInput, provider), AUTH_DEEP_LINK);
+      const result = await WebBrowser.openAuthSessionAsync(authUrl(serverUrl, provider), AUTH_DEEP_LINK);
 
-      // Truong hop Custom Tab tu dong dong nhung deep link khong duoc router bat:
-      // doc token ngay tu URL tra ve de nguoi dung khong bi quay lai man hinh trong.
+      // Custom Tab có thể đóng mà router không bắt được deep link, nên đọc URL trả về luôn.
       if (result.type === "success" && result.url) {
-        const link = parseAuthLink(result.url);
-        const action = decideAuthAction(link);
+        const action = decideAuthAction(parseAuthLink(result.url));
         if (action.type === "login") {
           await completeLogin(action.token);
           router.replace(action.target);
@@ -74,7 +69,6 @@ export default function LoginScreen() {
         return;
       }
 
-      // Nguoi dung tu dong trinh duyet thi bao ro, khong im lang.
       if (result.type === "cancel" || result.type === "dismiss") {
         setLocalError("Bạn đã đóng trang đăng nhập. Thử lại khi sẵn sàng.");
       }
@@ -87,20 +81,45 @@ export default function LoginScreen() {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, 24) + 24 }]}>
-      <View style={styles.headerBrand}>
-        <Image source={require("../assets/logo.png")} style={styles.brandLogo} resizeMode="contain" />
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <Text allowFontScaling={false} style={styles.headerTitle}>Lumo Lens</Text>
-          <Text allowFontScaling={false} style={styles.caption}>Dịch màn hình tức thì</Text>
+    <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, 20) + 20 }]}>
+      {/* Thanh thuong hieu: logo, ten hai mau, pill trang thai */}
+      <View style={styles.loginHeader}>
+        <View style={styles.loginBrandRow}>
+          <View style={styles.loginLogo}>
+            <Image source={require("../assets/logo.png")} style={{ width: 30, height: 30 }} resizeMode="contain" />
+          </View>
+          <Text allowFontScaling={false} style={styles.loginBrandName}>
+            Lumo<Text allowFontScaling={false} style={styles.loginBrandAccent}>Lens</Text>
+          </Text>
+        </View>
+        <View style={styles.syncPill}>
+          <View style={styles.syncPillDot} />
+          <Text allowFontScaling={false} style={styles.syncPillText}>SYNC</Text>
         </View>
       </View>
 
-      <View style={styles.loginHero}>
-        <Text allowFontScaling={false} style={styles.loginTitle}>Chào mừng trở lại</Text>
-        <Text allowFontScaling={false} style={styles.loginSubtitle}>
-          Đăng nhập để đồng bộ cấu hình model, hạn mức dịch và dùng nút dịch nổi trên mọi ứng dụng.
-        </Text>
+      {/* The hero theo dung cau truc Stitch */}
+      <View style={styles.loginHeroCard}>
+        <View style={styles.loginHeroTop}>
+          <View style={styles.loginHeroKicker}>
+            <View style={styles.loginHeroDot} />
+            <Text allowFontScaling={false} style={styles.loginHeroKickerText}>LUMO CLOUD KEYRING</Text>
+          </View>
+          <View style={styles.activeBadge}>
+            <Text allowFontScaling={false} style={styles.activeBadgeText}>HOẠT ĐỘNG</Text>
+          </View>
+        </View>
+        <View style={styles.loginHeroBody}>
+          <View style={{ flex: 1, gap: 3 }}>
+            <Text allowFontScaling={false} style={styles.loginTitle}>Chào mừng trở lại</Text>
+            <Text allowFontScaling={false} style={styles.loginSubtitle}>
+              Đồng bộ cấu hình model, hạn mức dịch và từ vựng đã dịch tức thì.
+            </Text>
+          </View>
+          <View style={styles.loginHeroIcon}>
+            <StitchIcon name="crop_free" size={22} color={ACCENT} />
+          </View>
+        </View>
       </View>
 
       {message ? (
@@ -109,7 +128,8 @@ export default function LoginScreen() {
         </View>
       ) : null}
 
-      <View style={styles.card}>
+      {/* The dang nhap: hai nut xep doc, duong ke, ghi chu bao mat */}
+      <View style={styles.loginCard}>
         <Pressable
           style={styles.socialButton}
           accessibilityRole="button"
@@ -118,59 +138,55 @@ export default function LoginScreen() {
           disabled={opening}
           onPress={() => startLogin("google")}
         >
-          <View style={[styles.socialDot, { backgroundColor: "#4285F4" }]}>
-            <Text allowFontScaling={false} style={[styles.socialButtonTextOnColor, { fontSize: 13 }]}>G</Text>
-          </View>
+          <View style={styles.socialMarkBox}><GoogleMark size={20} /></View>
           <Text allowFontScaling={false} style={styles.socialButtonText}>{opening ? "Đang mở trình duyệt…" : "Tiếp tục với Google"}</Text>
         </Pressable>
 
         <Pressable
-          style={[styles.socialButton, styles.socialButtonFacebook, { opacity: 0.7 }]}
+          style={[styles.socialButton, styles.socialButtonFacebook, { opacity: 0.75 }]}
           accessibilityRole="button"
           accessibilityLabel="Đăng nhập bằng Facebook, sắp có"
           onPress={() => startLogin("facebook")}
         >
-          <View style={[styles.socialDot, { backgroundColor: "#FFFFFF" }]}>
-            <Text allowFontScaling={false} style={[styles.socialButtonText, { fontSize: 13 }]}>f</Text>
-          </View>
+          <View style={styles.socialMarkBox}><FacebookMark size={18} /></View>
           <Text allowFontScaling={false} style={styles.socialButtonTextOnColor}>Facebook (sắp có)</Text>
         </Pressable>
 
-        <View style={styles.loginDivider}>
-          <View style={styles.loginDividerLine} />
-          <Text allowFontScaling={false} style={styles.caption}>Bảo mật</Text>
-          <View style={styles.loginDividerLine} />
+        <View style={styles.loginOrRow}>
+          <View style={styles.loginOrLine} />
+          <Text allowFontScaling={false} style={styles.loginOrText}>Hoặc tiếp tục với</Text>
+          <View style={styles.loginOrLine} />
         </View>
 
-        <View style={styles.iconLabel}>
-          <StitchIcon name="key" size={18} color={ACCENT} />
-          <Text allowFontScaling={false} style={[styles.hint, { flex: 1 }]}>
-            Lumo Lens không lưu mật khẩu. Email và tên do Google xác thực, token lưu trong kho bảo mật của máy.
+        <View style={styles.securityRow}>
+          <StitchIcon name="key" size={16} color={ACCENT} />
+          <Text allowFontScaling={false} style={[styles.perkText, { flex: 1 }]}>
+            Không lưu mật khẩu. Email và tên do Google xác thực, token lưu trong kho bảo mật của máy.
           </Text>
         </View>
       </View>
 
-      <Text allowFontScaling={false} style={styles.legalText}>
-        Bằng việc tiếp tục, bạn đồng ý với Điều khoản sử dụng và Chính sách quyền riêng tư của Lumo Lens.
-      </Text>
+      {/* The quyen loi giong Stitch */}
+      <View style={styles.perksCard}>
+        <View style={styles.perksTitleRow}>
+          <StitchIcon name="layers" size={15} color="#047857" />
+          <Text allowFontScaling={false} style={styles.perksTitle}>Quyền lợi tài khoản Lumo Sync</Text>
+        </View>
+        {PERKS.map((text) => (
+          <View key={text} style={styles.perkRow}>
+            <View style={styles.perkDot} />
+            <Text allowFontScaling={false} style={styles.perkText}>{text}</Text>
+          </View>
+        ))}
+      </View>
 
-      {/* Cần địa chỉ server trước khi đăng nhập, nên cho nhập ngay tại đây */}
-      <View style={styles.card}>
-        <Text allowFontScaling={false} style={styles.sectionTitle}>Địa chỉ server</Text>
-        <TextInput
-          allowFontScaling={false}
-          style={styles.input}
-          value={serverUrlInput}
-          onChangeText={setServerUrlInput}
-          onBlur={commitServerUrl}
-          autoCapitalize="none"
-          autoCorrect={false}
-          keyboardType="url"
-          placeholder="https://your-domain.example"
-          placeholderTextColor={TEXT_MUTED}
-          accessibilityLabel="Địa chỉ server"
-        />
-        <Text allowFontScaling={false} style={styles.hint}>Đăng nhập cần domain HTTPS. Máy ảo Android dùng 10.0.2.2 khi chạy server trên máy tính.</Text>
+      {/* Footer dieu khoan */}
+      <View style={styles.legalBar}>
+        <Text allowFontScaling={false} style={styles.legalText}>
+          Bằng việc tiếp tục, bạn đồng ý với
+          <Text allowFontScaling={false} style={styles.legalLink}> Điều khoản</Text> và
+          <Text allowFontScaling={false} style={styles.legalLink}> Chính sách AI Ethics</Text> của Lumo Lens.
+        </Text>
       </View>
     </ScrollView>
   );

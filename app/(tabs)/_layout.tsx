@@ -46,8 +46,7 @@ export default function TabsLayout() {
           closeForm();
           return true;
         }
-        if (tab !== "home") {
-          setTab("home");
+        if (tab !== "home") {          setTab("home");
           return true;
         }
         return false;

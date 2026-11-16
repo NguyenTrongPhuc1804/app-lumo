@@ -13,10 +13,12 @@ export const TEXT_MUTED = "#64748B";
 export const DANGER = "#DC2626";
 export const SECONDARY = "#0284C7";
 
-// Be Vietnam Pro ho tro day du dau tieng Viet; ten phai khop app/_layout.tsx
-export const FONT = "BeVietnamPro_400Regular";
-export const FONT_MEDIUM = "BeVietnamPro_500Medium";
-export const FONT_BOLD = "BeVietnamPro_700Bold";
+// Font Plus Jakarta Sans cho toan bo app, theo dung he thong thiet ke Stitch.
+// Ten bien duoc giu lai (FONT, FONT_MEDIUM, FONT_BOLD) de khong phai sua moi noi dung.
+export const FONT = "PlusJakartaSans_400Regular";
+export const FONT_MEDIUM = "PlusJakartaSans_500Medium";
+export const FONT_SEMIBOLD = "PlusJakartaSans_600SemiBold";
+export const FONT_BOLD = "PlusJakartaSans_700Bold";
 
 // Bo goc va khoang cach dung chung cho cac khoi Bento
 export const RADIUS = 22;
@@ -49,32 +51,68 @@ export function createTheme(dark: boolean, scale: number, width: number) {
   modelDetails: { borderTopWidth: 1, borderTopColor: BORDER, paddingTop: 12, gap: 10 },
 
   // Man dang nhap
-  loginHero: { backgroundColor: CARD, borderColor: BORDER, borderWidth: 1, borderRadius: RADIUS, padding: 18, gap: 8 },
-  loginTitle: { color: TEXT, fontSize: 22, lineHeight: 30, fontFamily: FONT_BOLD },
-  loginSubtitle: { color: TEXT_MUTED, fontSize: 13, lineHeight: 20, fontFamily: FONT },
-  socialButton: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, minHeight: 52, borderRadius: RADIUS_SM, borderWidth: 1, borderColor: BORDER, backgroundColor: CARD, paddingHorizontal: 16 },
+  loginHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12, paddingVertical: 4 },
+  loginLogo: { width: 40, height: 40, borderRadius: 13, borderWidth: 1, borderColor: BORDER, backgroundColor: CARD, alignItems: "center", justifyContent: "center" },
+  loginBrandRow: { flexDirection: "row", alignItems: "center", gap: 9, flexShrink: 1, minWidth: 0 },
+  loginBrandName: { color: TEXT, fontSize: 19, fontFamily: FONT_BOLD, letterSpacing: -0.2 },
+  loginBrandAccent: { color: ACCENT },
+  syncPill: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 10, minHeight: 32, borderRadius: 999, backgroundColor: "#ECFDF5", borderWidth: 1, borderColor: "#A7F3D0" },
+  syncPillDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "#10B981" },
+  syncPillText: { color: "#047857", fontSize: 10, fontFamily: FONT_BOLD, letterSpacing: 0.4 },
+  loginHeroCard: { backgroundColor: CARD, borderColor: BORDER, borderWidth: 1, borderRadius: RADIUS, padding: 16, gap: 12 },
+  loginHeroTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
+  loginHeroKicker: { flexDirection: "row", alignItems: "center", gap: 8, flexShrink: 1 },
+  loginHeroDot: { width: 9, height: 9, borderRadius: 5, borderWidth: 3, borderColor: "#D1FAE5", backgroundColor: "#10B981" },
+  loginHeroKickerText: { color: TEXT, fontSize: 11, fontFamily: FONT_BOLD, letterSpacing: 0.7 },
+  loginHeroBody: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
+  loginHeroIcon: { width: 46, height: 46, borderRadius: 15, borderWidth: 1, borderColor: "#A7F3D0", backgroundColor: "#ECFDF5", alignItems: "center", justifyContent: "center" },
+  loginTitle: { color: TEXT, fontSize: 20, lineHeight: 27, fontFamily: FONT_BOLD, letterSpacing: -0.3 },
+  loginSubtitle: { color: TEXT_MUTED, fontSize: 12, lineHeight: 18, fontFamily: FONT },
+  loginCard: { backgroundColor: CARD, borderColor: BORDER, borderWidth: 1, borderRadius: RADIUS, padding: 16, gap: 12 },
+  socialButton: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 9, minHeight: 46, borderRadius: RADIUS_SM, borderWidth: 1, borderColor: BORDER, backgroundColor: CARD, paddingHorizontal: 12 },
   socialButtonFacebook: { backgroundColor: "#1877F2", borderColor: "#1877F2" },
-  socialButtonText: { color: TEXT, fontSize: 15, fontFamily: FONT_BOLD },
-  socialButtonTextOnColor: { color: "#FFFFFF", fontSize: 15, fontFamily: FONT_BOLD },
-  socialDot: { width: 22, height: 22, borderRadius: 11, alignItems: "center", justifyContent: "center" },
-  loginDivider: { flexDirection: "row", alignItems: "center", gap: 10 },
-  loginDividerLine: { flex: 1, height: 1, backgroundColor: BORDER },
-  legalText: { color: TEXT_MUTED, fontSize: 11, lineHeight: 17, textAlign: "center", fontFamily: FONT },
+  socialButtonText: { color: TEXT, fontSize: 14, fontFamily: FONT_BOLD },
+  socialButtonTextOnColor: { color: "#FFFFFF", fontSize: 14, fontFamily: FONT_BOLD },
+  socialMarkBox: { width: 24, alignItems: "center", justifyContent: "center" },
+  loginOrRow: { flexDirection: "row", alignItems: "center" },
+  loginOrLine: { flex: 1, height: 1, backgroundColor: BORDER },
+  loginOrText: { color: TEXT_MUTED, fontSize: 11, fontFamily: FONT, paddingHorizontal: 10, backgroundColor: CARD },
+  securityRow: { flexDirection: "row", alignItems: "flex-start", gap: 8, backgroundColor: CARD_ALT, borderRadius: RADIUS_SM, padding: 12 },
+  perksCard: { borderRadius: RADIUS, borderWidth: 1, borderColor: "#A7F3D0", backgroundColor: "#F0FDF7", padding: 13, gap: 8 },
+  perksTitleRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  perksTitle: { color: "#065F46", fontSize: 12, fontFamily: FONT_BOLD },
+  perkRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  perkDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: "#10B981" },
+  perkText: { color: TEXT_DIM, fontSize: 11, lineHeight: 17, fontFamily: FONT, flex: 1 },
+  legalBar: { alignItems: "center", gap: 4, paddingTop: 2 },
+  legalLink: { color: ACCENT, fontFamily: FONT_MEDIUM },
+  legalText: { color: TEXT_MUTED, fontSize: 10, lineHeight: 16, textAlign: "center", fontFamily: FONT },
 
   // Man tai khoan
-  accountCard: { backgroundColor: CARD, borderColor: BORDER, borderWidth: 1, borderRadius: RADIUS, padding: 18, gap: 14, alignItems: "center" },
-  accountAvatarRing: { width: 76, height: 76, borderRadius: 38, padding: 3, backgroundColor: ACCENT, alignItems: "center", justifyContent: "center" },
-  accountAvatar: { width: 70, height: 70, borderRadius: 35, backgroundColor: CARD_ALT, alignItems: "center", justifyContent: "center" },
-  accountAvatarText: { color: ACCENT, fontSize: 24, fontFamily: FONT_BOLD },
-  accountName: { color: TEXT, fontSize: 20, fontFamily: FONT_BOLD, textAlign: "center" },
-  accountEmail: { color: TEXT_MUTED, fontSize: 13, fontFamily: FONT, textAlign: "center" },
-  quotaTrack: { height: 8, borderRadius: 4, backgroundColor: CARD_ALT, overflow: "hidden", alignSelf: "stretch" },
-  quotaFill: { height: 8, borderRadius: 4, backgroundColor: ACCENT },
-  accountRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10, paddingVertical: 12, minHeight: 48 },
-  accountRowLabel: { color: TEXT_DIM, fontSize: 13, fontFamily: FONT },
+  accountIdLine: { color: TEXT_MUTED, fontSize: 10, fontFamily: FONT_BOLD, letterSpacing: 0.6 },
+  accountCard: { backgroundColor: CARD, borderColor: BORDER, borderWidth: 1, borderRadius: 26, padding: 20, gap: 14 },
+  accountTopRow: { flexDirection: "row", alignItems: "center", gap: 14 },
+  accountAvatarRing: { width: 68, height: 68, borderRadius: 34, padding: 3, backgroundColor: ACCENT, alignItems: "center", justifyContent: "center" },
+  accountAvatar: { width: 62, height: 62, borderRadius: 31, backgroundColor: "#0F172A", alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: "#FFFFFF" },
+  accountAvatarText: { color: "#6EE7B7", fontSize: 20, fontFamily: FONT_BOLD, letterSpacing: 1 },
+  accountMemberPill: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 9, paddingVertical: 3, borderRadius: 999, backgroundColor: "#ECFDF5", borderWidth: 1, borderColor: "#A7F3D0", alignSelf: "flex-start" },
+  accountMemberPillDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: "#10B981" },
+  accountMemberPillText: { color: "#047857", fontSize: 10, fontFamily: FONT_BOLD },
+  accountName: { color: TEXT, fontSize: 20, lineHeight: 26, fontFamily: FONT_BOLD, letterSpacing: -0.3 },
+  accountEmail: { color: TEXT_MUTED, fontSize: 12, fontFamily: FONT },
+  quotaHeaderRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  quotaValue: { color: TEXT, fontSize: 26, lineHeight: 32, fontFamily: FONT_BOLD, letterSpacing: -0.5 },
+  quotaTrack: { height: 6, borderRadius: 3, backgroundColor: CARD_ALT, overflow: "hidden", alignSelf: "stretch" },
+  quotaFill: { height: 6, borderRadius: 3, backgroundColor: ACCENT },
+  accountList: { backgroundColor: CARD, borderColor: BORDER, borderWidth: 1, borderRadius: RADIUS, overflow: "hidden" },
+  accountListRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, paddingVertical: 14, minHeight: 64, borderBottomWidth: 1, borderBottomColor: CARD_ALT },
+  accountRowIcon: { width: 40, height: 40, borderRadius: 12, alignItems: "center", justifyContent: "center", borderWidth: 1 },
+  accountRowTitle: { color: TEXT, fontSize: 14, fontFamily: FONT_BOLD },
+  accountRowSub: { color: TEXT_MUTED, fontSize: 11, fontFamily: FONT, marginTop: 1 },
+  accountRowChevron: { color: "#CBD5E1", fontSize: 18, fontFamily: FONT_MEDIUM },
   accountRowValue: { color: TEXT, fontSize: 14, fontFamily: FONT_MEDIUM, flexShrink: 1, textAlign: "right" },
-  dangerButton: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, minHeight: 52, borderRadius: RADIUS_SM, borderWidth: 1, borderColor: "#FECDD3", backgroundColor: "#FFF1F2" },
-  dangerButtonText: { color: "#E11D48", fontSize: 15, fontFamily: FONT_BOLD },
+  dangerButton: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, minHeight: 50, borderRadius: RADIUS_SM, borderWidth: 1, borderColor: "#FECDD3", backgroundColor: "#FFF1F2" },
+  dangerButtonText: { color: "#E11D48", fontSize: 14, fontFamily: FONT_BOLD },
 
   // Man gioi thieu
   onboardBody: { flexGrow: 1, justifyContent: "flex-start", paddingHorizontal: 20, gap: 20 },

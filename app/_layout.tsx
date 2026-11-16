@@ -1,4 +1,4 @@
-import { BeVietnamPro_400Regular, BeVietnamPro_500Medium, BeVietnamPro_700Bold, useFonts } from "@expo-google-fonts/be-vietnam-pro";
+import { PlusJakartaSans_400Regular, PlusJakartaSans_500Medium, PlusJakartaSans_600SemiBold, PlusJakartaSans_700Bold, useFonts } from "@expo-google-fonts/plus-jakarta-sans";
 import { Stack, router, useSegments } from "expo-router";
 import { useEffect } from "react";
 import { StatusBar } from "react-native";
@@ -14,7 +14,7 @@ const TOP = StatusBar.currentHeight ?? 0;
 
 export default function RootLayout() {
   // Cho font san sang truoc khi ve giao dien de chu khong bi doi kieu
-  const [fontsLoaded] = useFonts({ BeVietnamPro_400Regular, BeVietnamPro_500Medium, BeVietnamPro_700Bold, MaterialSymbolsOutlined: require("../assets/MaterialSymbolsOutlined.ttf") });
+  const [fontsLoaded] = useFonts({ PlusJakartaSans_400Regular, PlusJakartaSans_500Medium, PlusJakartaSans_600SemiBold, PlusJakartaSans_700Bold, MaterialSymbolsOutlined: require("../assets/MaterialSymbolsOutlined.ttf") });
   // Cho doc xong du lieu da luu de khong hien nham che do sang roi doi sang toi
   const configReady = useConfigStore((s) => s.hydrated);
   const appearanceReady = useAppearanceStore((s) => s.hydrated);
