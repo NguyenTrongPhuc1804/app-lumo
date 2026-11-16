@@ -37,3 +37,18 @@ export function FacebookMark({ size = 20, color = "#FFFFFF" }: { size?: number; 
     </Svg>
   );
 }
+
+// Van tay ve bang duong cong long nhau, doc ro o co 14-16px.
+// Font icon da sub-set khong co glyph van tay nen ve rieng thay vi tai them font.
+export function FingerprintMark({ size = 16, color = "#059669" }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" accessible={false} importantForAccessibility="no">
+      <Path d="M4.6 10a8.7 8.7 0 0 1 14.8 0" stroke={color} strokeWidth={1.7} strokeLinecap="round" />
+      <Path d="M7 11.2a5.9 5.9 0 0 1 10 0" stroke={color} strokeWidth={1.7} strokeLinecap="round" />
+      <Path d="M9.5 12.3a3.1 3.1 0 0 1 5 0" stroke={color} strokeWidth={1.7} strokeLinecap="round" />
+      <Path d="M12 12.9v4.4" stroke={color} strokeWidth={1.7} strokeLinecap="round" />
+      <Path d="M7.7 16.8c.6 1.2 1.5 2.1 2.4 2.6" stroke={color} strokeWidth={1.7} strokeLinecap="round" />
+      <Path d="M16.3 16.8c-.6 1.2-1.5 2.1-2.4 2.6" stroke={color} strokeWidth={1.7} strokeLinecap="round" />
+    </Svg>
+  );
+}

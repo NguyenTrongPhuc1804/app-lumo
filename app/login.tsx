@@ -9,7 +9,7 @@ import { useAuthStore } from "../stores/authStore";
 import { useConfigStore } from "../stores/configStore";
 import { useTheme } from "../hooks/useTheme";
 import StitchIcon from "../components/StitchIcon";
-import { GoogleMark, FacebookMark } from "../components/BrandMarks";
+import { GoogleMark, FacebookMark, FingerprintMark } from "../components/BrandMarks";
 
 // Mo trang dang nhap cua server trong trinh duyet he thong.
 // Server tu chuyen sang Google roi quay ve app qua deep link.
@@ -158,11 +158,10 @@ export default function LoginScreen() {
           <View style={styles.loginOrLine} />
         </View>
 
-        <View style={styles.securityRow}>
-          <StitchIcon name="key" size={16} color={ACCENT} />
-          <Text allowFontScaling={false} style={[styles.perkText, { flex: 1 }]}>
-            Không lưu mật khẩu. Email và tên do Google xác thực, token lưu trong kho bảo mật của máy.
-          </Text>
+        {/* Dong bao mat van tay, dung cau chu va kieu can giua nhu thiet ke */}
+        <View style={styles.fingerprintRow}>
+          <FingerprintMark size={14} color={ACCENT} />
+          <Text allowFontScaling={false} style={styles.fingerprintText}>Bảo mật vân tay mã hóa theo chuẩn OAuth 2.0</Text>
         </View>
       </View>
 
