@@ -4,12 +4,15 @@ const { createLoader, memoryStorage, waitFor } = require('./helpers/load-ts.cjs'
 
 const CONFIG_KEY = 'lumo-lens-config';
 
-// Nạp configStore với AsyncStorage giả. Trả về store và storage để kiểm tra.
-function loadConfig(initial, globals) {
+// Nạp configStore với AsyncStorage giả và một process.env riêng.
+// Mặc định env rỗng để test không phụ thuộc biến môi trường của máy chạy
+// (mobile/.env hoặc biến của CI) — nếu không, cùng một test sẽ xanh ở máy
+// này và đỏ trên GitHub Actions.
+function loadConfig(initial, env = {}) {
   const storage = memoryStorage(initial);
   const load = createLoader(
     { '@react-native-async-storage/async-storage': { __esModule: true, default: storage } },
-    globals
+    { process: { env } }
   );
   const { useConfigStore } = load('stores/configStore.ts');
   return { useConfigStore, storage };
@@ -44,7 +47,7 @@ test('chép dữ liệu từ khóa cũ sang khóa mới, xóa cả khóa admin c
 });
 
 test('storage trống thì dùng giá trị mặc định và env', async () => {
-  const { useConfigStore } = loadConfig({}, { process: { env: { EXPO_PUBLIC_SERVER_URL: 'http://env' } } });
+  const { useConfigStore } = loadConfig({}, { EXPO_PUBLIC_SERVER_URL: 'http://env' });
   const s = await loaded(useConfigStore);
 
   assert.equal(s.serverUrl, 'http://env');
@@ -67,7 +70,7 @@ test('đọc AsyncStorage lỗi vẫn đánh dấu hydrated', async () => {
   storage.getItem = async () => {
     throw new Error('io');
   };
-  const load = createLoader({ '@react-native-async-storage/async-storage': { __esModule: true, default: storage } });
+  const load = createLoader({ '@react-native-async-storage/async-storage': { __esModule: true, default: storage } }, { process: { env: {} } });
   const { useConfigStore } = load('stores/configStore.ts');
   const s = await loaded(useConfigStore);
 
@@ -118,7 +121,7 @@ test('xóa khóa cũ lỗi thì vẫn giữ dữ liệu đã chuyển', async ()
   storage.removeItem = async () => {
     throw new Error('busy');
   };
-  const load = createLoader({ '@react-native-async-storage/async-storage': { __esModule: true, default: storage } });
+  const load = createLoader({ '@react-native-async-storage/async-storage': { __esModule: true, default: storage } }, { process: { env: {} } });
   const { useConfigStore } = load('stores/configStore.ts');
   const s = await loaded(useConfigStore);
 

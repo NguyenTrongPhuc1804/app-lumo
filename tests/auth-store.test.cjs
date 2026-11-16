@@ -31,7 +31,7 @@ function loadAuth({ secure = memorySecure(), response = null } = {}) {
         return response;
       },
     },
-  });
+  }, { process: { env: {} } });
   const { useAuthStore } = load('stores/authStore.ts');
   return { useAuthStore, secure, calls, load };
 }

@@ -15,7 +15,7 @@ function loadStores(api, token = "test-token") {
     '@react-native-async-storage/async-storage': { __esModule: true, default: storage },
     'expo-secure-store': secure,
     '../lib/api': { fetchMe: async () => null, ...api },
-  });
+  }, { process: { env: {} } });
   const { useConfigStore } = load('stores/configStore.ts');
   const { useModelStore } = load('stores/modelStore.ts');
   return { useConfigStore, useModelStore, secure };

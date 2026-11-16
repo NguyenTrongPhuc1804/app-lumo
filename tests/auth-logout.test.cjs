@@ -23,7 +23,7 @@ function loadAuth({ secure = memorySecure(), response = null } = {}) {
       },
       stopTranslator: () => stops.push(true),
     },
-  });
+  }, { process: { env: {} } });
   const { useAuthStore } = load('stores/authStore.ts');
   return { useAuthStore, secure, stops };
 }
@@ -55,7 +55,7 @@ test('đăng xuất vẫn xoá token dù lớp phủ đang không chạy', async
       fetchMe: async () => user,
       stopTranslator: () => { throw new Error('chưa chạy'); },
     },
-  });
+  }, { process: { env: {} } });
   const { useAuthStore } = load('stores/authStore.ts');
   await waitFor(() => useAuthStore.getState().hydrated);
   await useAuthStore.getState().logout();
