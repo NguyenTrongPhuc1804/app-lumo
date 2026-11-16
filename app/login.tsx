@@ -111,9 +111,9 @@ export default function LoginScreen() {
         </View>
         <View style={styles.loginHeroBody}>
           <View style={{ flex: 1, gap: 3 }}>
-            <Text allowFontScaling={false} style={styles.loginTitle}>Chào mừng trở lại</Text>
+            <Text allowFontScaling={false} style={styles.loginTitle}>Chào mừng đến với Lumo Lens</Text>
             <Text allowFontScaling={false} style={styles.loginSubtitle}>
-              Đồng bộ cấu hình model, hạn mức dịch và từ vựng đã dịch tức thì.
+              Đăng nhập nhanh để đồng bộ dữ liệu và kích hoạt HUD dịch tức thì.
             </Text>
           </View>
           <View style={styles.loginHeroIcon}>
@@ -128,8 +128,16 @@ export default function LoginScreen() {
         </View>
       ) : null}
 
-      {/* The dang nhap: hai nut xep doc, duong ke, ghi chu bao mat */}
+      {/* The dang nhap: khoi tieu de 1-cham roi den hai nut xep doc */}
       <View style={styles.loginCard}>
+        <View style={styles.oneTapHeader}>
+          <View style={styles.oneTapIcon}>
+            <StitchIcon name="speed" size={18} color={ACCENT} />
+          </View>
+          <Text allowFontScaling={false} style={styles.oneTapTitle}>Đăng nhập 1-chạm</Text>
+          <Text allowFontScaling={false} style={styles.oneTapSubtitle}>Truy cập an toàn tức thì không cần ghi nhớ mật khẩu</Text>
+        </View>
+
         <Pressable
           style={styles.socialButton}
           accessibilityRole="button"
@@ -143,20 +151,14 @@ export default function LoginScreen() {
         </Pressable>
 
         <Pressable
-          style={[styles.socialButton, styles.socialButtonFacebook, { opacity: 0.75 }]}
+          style={[styles.socialButton, styles.socialButtonFacebook]}
           accessibilityRole="button"
-          accessibilityLabel="Đăng nhập bằng Facebook, sắp có"
+          accessibilityLabel="Đăng nhập bằng Facebook"
           onPress={() => startLogin("facebook")}
         >
           <View style={styles.socialMarkBox}><FacebookMark size={18} /></View>
-          <Text allowFontScaling={false} style={styles.socialButtonTextOnColor}>Facebook (sắp có)</Text>
+          <Text allowFontScaling={false} style={styles.socialButtonTextOnColor}>Tiếp tục với Facebook</Text>
         </Pressable>
-
-        <View style={styles.loginOrRow}>
-          <View style={styles.loginOrLine} />
-          <Text allowFontScaling={false} style={styles.loginOrText}>Hoặc tiếp tục với</Text>
-          <View style={styles.loginOrLine} />
-        </View>
 
         {/* Dong bao mat van tay, dung cau chu va kieu can giua nhu thiet ke */}
         <View style={styles.fingerprintRow}>
