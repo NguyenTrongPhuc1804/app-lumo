@@ -1,6 +1,6 @@
 import * as SecureStore from "expo-secure-store";
 import { create } from "zustand";
-import { fetchMe, type AuthUser } from "../lib/api";
+import { fetchMe, stopTranslator, type AuthUser } from "../lib/api";
 import { useConfigStore } from "./configStore";
 
 const TOKEN_KEY = "lumo-lens-token";
@@ -56,6 +56,12 @@ export const useAuthStore = create<AuthState>()((set, get) => {
     },
 
     logout: async () => {
+      // Tat lop phu truoc khi xoa token, neu khong no se tiep tuc gui token cu.
+      try {
+        stopTranslator();
+      } catch {
+        // Lop phu co the dang khong chay; bo qua.
+      }
       try {
         await SecureStore.deleteItemAsync(TOKEN_KEY);
       } catch {

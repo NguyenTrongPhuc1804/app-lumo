@@ -154,8 +154,8 @@ class TranslatorService : Service() {
     !destroyed && id == workId && (generation == null || autoState.isCurrent(generation))
 
   fun updateConfig(newMode: String, newSourceLang: String, newTargetLang: String, newModel: String, newToken: String = "") {
-    // Token moi co hieu luc ngay, ke ca khi cac cau hinh khac khong doi.
-    if (newToken.isNotEmpty()) token = newToken
+    // Token luon duoc cap nhat, ke ca rong (sau khi dang xuat) de khong dung lai token cu.
+    if (token != newToken) token = newToken
     val safeMode = if (newMode == "manga") "manga" else "game"
     if (mode == safeMode && sourceLang == newSourceLang && targetLang == newTargetLang && model == newModel) return
     workId++
@@ -1068,11 +1068,14 @@ class TranslatorService : Service() {
     connection.doOutput = true
     try {
       connection.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
-      if (connection.responseCode == 401) {
-        throw Exception("Phiên đăng nhập đã hết hạn, mở app để đăng nhập lại")
-      }
-      if (connection.responseCode != 200) {
-        throw Exception("server trả về ${connection.responseCode}")
+      val code = connection.responseCode
+      // Bao dung ly do de nguoi dung biet phai lam gi, thay vi "server tra ve 429".
+      when (code) {
+        200 -> {}
+        401 -> throw Exception("Phiên đăng nhập đã hết hạn, mở app để đăng nhập lại")
+        403 -> throw Exception("Tài khoản đã bị khoá, liên hệ quản trị viên")
+        429 -> throw Exception("Hết lượt dịch hôm nay, thử lại vào ngày mai")
+        else -> throw Exception("server trả về $code")
       }
       val json = JSONObject(connection.inputStream.bufferedReader().use { it.readText() })
       val array = json.getJSONArray("translations")

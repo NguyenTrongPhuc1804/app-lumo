@@ -6,6 +6,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { describeAuthError } from "../lib/auth-link";
 import { AUTH_DEEP_LINK } from "../lib/auth-link";
 import { useConfigStore } from "../stores/configStore";
+import { decideAuthAction } from "../lib/auth-route";
+import { parseAuthLink } from "../lib/auth-link";
 import { useAuthStore } from "../stores/authStore";
 import { useTheme } from "../hooks/useTheme";
 import StitchIcon from "../components/StitchIcon";
@@ -23,6 +25,7 @@ export default function LoginScreen() {
   const serverUrl = useConfigStore((s) => s.serverUrl);
   const setServerUrl = useConfigStore((s) => s.setServerUrl);
   const error = useAuthStore((s) => s.error);
+  const completeLogin = useAuthStore((s) => s.completeLogin);
   const [opening, setOpening] = useState(false);
   const [serverUrlInput, setServerUrlInput] = useState(serverUrl);
   const busy = useRef(false);
@@ -31,7 +34,8 @@ export default function LoginScreen() {
   const commitServerUrl = () => setServerUrl(serverUrlInput.trim());
 
   // Thong bao loi tu deep link hoac tu lan dang nhap truoc
-  const message = describeAuthError(params.error ?? null) ?? error;
+  const [localError, setLocalError] = useState<string | null>(null);
+  const message = localError ?? describeAuthError(params.error ?? null) ?? error;
 
   useEffect(() => {
     // Server da tra loi bang deep link; o day khong lam gi them.
@@ -51,9 +55,29 @@ export default function LoginScreen() {
 
     busy.current = true;
     setOpening(true);
+    setLocalError(null);
     try {
       // openAuthSessionAsync tu dong dong trinh duyet khi app duoc mo lai bang deep link.
-      await WebBrowser.openAuthSessionAsync(authUrl(serverUrlInput, provider), AUTH_DEEP_LINK);
+      const result = await WebBrowser.openAuthSessionAsync(authUrl(serverUrlInput, provider), AUTH_DEEP_LINK);
+
+      // Truong hop Custom Tab tu dong dong nhung deep link khong duoc router bat:
+      // doc token ngay tu URL tra ve de nguoi dung khong bi quay lai man hinh trong.
+      if (result.type === "success" && result.url) {
+        const link = parseAuthLink(result.url);
+        const action = decideAuthAction(link);
+        if (action.type === "login") {
+          await completeLogin(action.token);
+          router.replace(action.target);
+          return;
+        }
+        setLocalError(action.message);
+        return;
+      }
+
+      // Nguoi dung tu dong trinh duyet thi bao ro, khong im lang.
+      if (result.type === "cancel" || result.type === "dismiss") {
+        setLocalError("Bạn đã đóng trang đăng nhập. Thử lại khi sẵn sàng.");
+      }
     } catch (err: any) {
       Alert.alert("Không mở được trình duyệt", err?.message ?? "Vui lòng thử lại.");
     } finally {

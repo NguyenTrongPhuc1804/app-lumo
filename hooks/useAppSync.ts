@@ -44,7 +44,12 @@ export function useAppSync() {
     if (Platform.OS !== "android") return;
     useServiceStore.getState().refreshService();
     const subscription = AppState.addEventListener("change", (state) => {
-      if (state === "active") useServiceStore.getState().refreshService();
+      if (state === "active") {
+        useServiceStore.getState().refreshService();
+        // Tài khoản có thể đã bị khoá hoặc token hết hạn trong lúc app ở nền.
+        // reloadMe tự xoá token khi gặp 401/403, đưa người dùng về màn đăng nhập.
+        if (useAuthStore.getState().token) useAuthStore.getState().reloadMe().catch(() => {});
+      }
     });
     return () => subscription.remove();
   }, []);
