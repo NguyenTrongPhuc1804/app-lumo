@@ -9,7 +9,7 @@ test('expanding/collapsing remains separate from selecting and errors stay visib
   let state = ['', null];
   let cursor = 0;
   const calls = [];
-  const settings = { model: 'one', customModels: [{ id: '1', code: 'one', name: 'One', description: 'First' }, { id: '2', code: 'two', name: 'Two' }], deletingIds: [], adminModelsError: 'ADMIN_KEY không hợp lệ', setModel: (code) => calls.push(code) };
+  const settings = { model: 'one', customModels: [{ id: '1', code: 'one', name: 'One', description: 'First' }, { id: '2', code: 'two', name: 'Two' }], deletingIds: [], adminModelsError: 'Tài khoản không có quyền quản lý model', setModel: (code) => calls.push(code) };
   const exports = {};
   const source = ts.transpileModule(fs.readFileSync(path.join(__dirname, '../components/ModelsPanel.tsx'), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX } }).outputText;
   vm.runInNewContext(source, { exports, require: (name) => {

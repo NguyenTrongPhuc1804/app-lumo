@@ -236,13 +236,13 @@ test('xóa model: server trả lỗi thì trả về câu lỗi và không tải
       return [];
     },
     fetchAdminModels: async () => [],
-    deleteModel: async () => 'ADMIN_KEY không hợp lệ',
+    deleteModel: async () => 'Tài khoản không có quyền quản lý model',
   });
   await ready(useConfigStore);
   useModelStore.setState({ customModels: [{ id: 'x', name: 'X', code: 'x', baseUrl: '', apiKey: '' }] });
   modelCalls = 0;
 
-  assert.equal(await useModelStore.getState().removeModel('x'), 'ADMIN_KEY không hợp lệ');
+  assert.equal(await useModelStore.getState().removeModel('x'), 'Tài khoản không có quyền quản lý model');
   assert.equal(modelCalls, 0);
   assert.equal(useModelStore.getState().deletingIds.length, 0);
 });
