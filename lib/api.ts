@@ -103,6 +103,21 @@ export async function deleteModel(serverUrl: string, token: string, id: string):
   }
 }
 
+// Chi dang xuat sau khi server xac nhan xoa. 404 cho phep thu lai khi mat response.
+export async function deleteAccount(serverUrl: string, token: string): Promise<string | null> {
+  if (!apiBase(serverUrl)) return "Chưa cấu hình địa chỉ server";
+  try {
+    const res = await fetch(`${apiBase(serverUrl)}/api/me`, { method: "DELETE", headers: authHeaders(token) });
+    if (res.ok || res.status === 404) return null;
+    const data = await res.json().catch(() => ({}));
+    // Token van hop le nhung user da mat: lan xoa truoc co the bi mat response.
+    if (res.status === 401 && data?.code === "ACCOUNT_NOT_FOUND") return null;
+    return authError(res.status, data);
+  } catch (err: any) {
+    return err?.message || "Không kết nối được server";
+  }
+}
+
 // Bat/tat nut dich noi. Tra ve true neu da bat.
 export async function startTranslator(config: {
   mode?: "game" | "manga";

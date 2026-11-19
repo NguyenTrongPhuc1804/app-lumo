@@ -87,7 +87,8 @@ export function createTheme(dark: boolean, scale: number, width: number) {
   perkDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: "#10B981" },
   perkText: { color: TEXT_DIM, fontSize: 11, lineHeight: 17, fontFamily: FONT, flex: 1 },
   legalBar: { alignItems: "center", gap: 4, paddingTop: 2 },
-  legalLink: { color: ACCENT, fontFamily: FONT_MEDIUM },
+  legalLink: { color: ACCENT, fontFamily: FONT_MEDIUM, textDecorationLine: "underline", fontSize: 10 },
+  legalLinksRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", flexWrap: "wrap", gap: 2 },
   legalText: { color: TEXT_MUTED, fontSize: 10, lineHeight: 16, textAlign: "center", fontFamily: FONT },
 
   // Man tai khoan
@@ -115,6 +116,8 @@ export function createTheme(dark: boolean, scale: number, width: number) {
   accountRowValue: { color: TEXT, fontSize: 14, fontFamily: FONT_MEDIUM, flexShrink: 1, textAlign: "right" },
   dangerButton: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, minHeight: 50, borderRadius: RADIUS_SM, borderWidth: 1, borderColor: "#FECDD3", backgroundColor: "#FFF1F2" },
   dangerButtonText: { color: "#E11D48", fontSize: 14, fontFamily: FONT_BOLD },
+  deleteAccountButton: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, minHeight: 48, borderRadius: RADIUS_SM, borderWidth: 1, borderColor: BORDER, backgroundColor: CARD },
+  deleteAccountText: { color: DANGER, fontSize: 13, fontFamily: FONT_MEDIUM },
 
   // Man gioi thieu
   onboardBody: { flexGrow: 1, justifyContent: "flex-start", paddingHorizontal: 20, gap: 20 },

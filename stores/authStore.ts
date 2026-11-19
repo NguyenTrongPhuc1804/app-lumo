@@ -1,6 +1,6 @@
 import * as SecureStore from "expo-secure-store";
 import { create } from "zustand";
-import { fetchMe, stopTranslator, type AuthUser } from "../lib/api";
+import { deleteAccount as apiDeleteAccount, fetchMe, stopTranslator, type AuthUser } from "../lib/api";
 import { useConfigStore } from "./configStore";
 
 const TOKEN_KEY = "lumo-lens-token";
@@ -15,6 +15,7 @@ type AuthState = {
   completeLogin: (token: string) => Promise<void>;
   logout: () => Promise<void>;
   reloadMe: () => Promise<void>;
+  deleteAccount: () => Promise<string | null>;
 };
 
 // Lấy câu lỗi an toàn: lỗi có thể đến từ realm khác nên không dùng instanceof.
@@ -68,6 +69,16 @@ export const useAuthStore = create<AuthState>()((set, get) => {
         // Không xoá được thì vẫn xoá trong bộ nhớ, lần mở sau người dùng đăng nhập lại.
       }
       set({ token: null, user: null, error: null });
+    },
+
+    deleteAccount: async () => {
+      const { token } = get();
+      if (!token) return "Chưa đăng nhập";
+      const { serverUrl } = useConfigStore.getState();
+      const error = await apiDeleteAccount(serverUrl, token);
+      if (error) return error;
+      await get().logout();
+      return null;
     },
 
     reloadMe: async () => {

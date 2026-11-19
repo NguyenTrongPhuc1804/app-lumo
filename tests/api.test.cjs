@@ -17,6 +17,43 @@ vm.runInNewContext(compiled, {
 const api = moduleObject.exports;
 afterEach(() => { global.fetch = originalFetch; });
 
+for (const status of [200, 404]) {
+  test(`delete account succeeds on ${status}`, async () => {
+    global.fetch = async (url, options) => {
+      assert.equal(url, 'http://localhost/lumo/api/me');
+      assert.equal(options.method, 'DELETE');
+      assert.equal(options.headers.Authorization, 'Bearer token');
+      assert.equal(options.body, undefined);
+      return new Response('{}', { status });
+    };
+    assert.equal(await api.deleteAccount('http://localhost/lumo/', 'token'), null);
+  });
+}
+
+test('delete account keeps authentication failures distinct from a missing account', async () => {
+  global.fetch = async () => new Response('{}', { status: 401 });
+  assert.equal(await api.deleteAccount('http://localhost', 'token'), 'Phiên đăng nhập đã hết hạn');
+});
+
+test('delete account finishes cleanup when a valid token belongs to a deleted account', async () => {
+  global.fetch = async () => new Response(JSON.stringify({ code: 'ACCOUNT_NOT_FOUND' }), { status: 401 });
+  assert.equal(await api.deleteAccount('http://localhost', 'token'), null);
+});
+
+test('delete account reports blocked, server and network failures', async () => {
+  for (const status of [403, 503]) {
+    global.fetch = async () => new Response(JSON.stringify({ error: 'Không xoá được' }), { status });
+    assert.equal(await api.deleteAccount('http://localhost', 'token'), 'Không xoá được');
+  }
+  global.fetch = async () => { throw new Error('Network down'); };
+  assert.equal(await api.deleteAccount('http://localhost', 'token'), 'Network down');
+});
+
+test('delete account rejects an empty server without making a request', async () => {
+  global.fetch = async () => { throw new Error('must not fetch'); };
+  assert.equal(await api.deleteAccount(' ', 'token'), 'Chưa cấu hình địa chỉ server');
+});
+
 test('admin list HTTP errors are not reported as an empty list', async () => {
   global.fetch = async () => new Response(JSON.stringify({ error: 'Server unavailable' }), { status: 500 });
   await assert.rejects(api.fetchAdminModels('http://localhost', 'token'), /Server unavailable/);

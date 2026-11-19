@@ -1,4 +1,6 @@
-import { ActivityIndicator, Pressable, Text, View } from "react-native";
+import { useRef, useState } from "react";
+import { ActivityIndicator, Alert, Pressable, Text, View } from "react-native";
+import { confirmDeletionMessage } from "../lib/account-deletion";
 import { useAuthStore } from "../stores/authStore";
 import { useTheme } from "../hooks/useTheme";
 import StitchIcon from "./StitchIcon";
@@ -24,6 +26,38 @@ export default function AccountPanel({ onOpenModels }: { onOpenModels: () => voi
   const error = useAuthStore((s) => s.error);
   const reloadMe = useAuthStore((s) => s.reloadMe);
   const logout = useAuthStore((s) => s.logout);
+  const deleteAccount = useAuthStore((s) => s.deleteAccount);
+  const [deleting, setDeleting] = useState(false);
+  const deletingRef = useRef(false);
+
+  const askDeleteAccount = () => {
+    if (!user || deletingRef.current) return;
+    // Khoa ngay ca khi hop thoai dang mo de khong tao nhieu xac nhan.
+    deletingRef.current = true;
+    let submitted = false;
+    const cancel = () => { deletingRef.current = false; };
+    Alert.alert("Xoá tài khoản vĩnh viễn?", confirmDeletionMessage(user), [
+      { text: "Huỷ", style: "cancel", onPress: cancel },
+      {
+        text: "Xoá vĩnh viễn",
+        style: "destructive",
+        onPress: async () => {
+          if (submitted) return;
+          submitted = true;
+          setDeleting(true);
+          try {
+            const error = await deleteAccount();
+            if (error) Alert.alert("Không xoá được tài khoản", error);
+          } catch {
+            Alert.alert("Không xoá được tài khoản", "Vui lòng thử lại.");
+          } finally {
+            deletingRef.current = false;
+            setDeleting(false);
+          }
+        },
+      },
+    ], { cancelable: false });
+  };
 
   // Chua tai xong thong tin thi hien trang thai cho, khong hien "undefined".
   if (!user) {
@@ -133,9 +167,13 @@ export default function AccountPanel({ onOpenModels }: { onOpenModels: () => voi
 
       {error ? <Text allowFontScaling={false} style={styles.hint}>{error}</Text> : null}
 
-      <Pressable style={styles.dangerButton} accessibilityRole="button" onPress={() => logout()}>
+      <Pressable style={styles.dangerButton} accessibilityRole="button" disabled={deleting} onPress={() => logout()}>
         <StitchIcon name="refresh" size={17} color={DANGER} />
         <Text allowFontScaling={false} style={styles.dangerButtonText}>Đăng xuất</Text>
+      </Pressable>
+      <Pressable style={styles.deleteAccountButton} accessibilityRole="button" accessibilityLabel="Xoá tài khoản vĩnh viễn" accessibilityState={{ disabled: deleting }} disabled={deleting} onPress={askDeleteAccount}>
+        {deleting ? <ActivityIndicator color={DANGER} /> : <StitchIcon name="delete" size={17} color={DANGER} />}
+        <Text allowFontScaling={false} style={styles.deleteAccountText}>{deleting ? "Đang xoá…" : "Xoá tài khoản"}</Text>
       </Pressable>
       <Text allowFontScaling={false} style={styles.caption}>Phiên đăng nhập kéo dài 30 ngày. Đăng xuất sẽ xoá token khỏi máy.</Text>
     </>

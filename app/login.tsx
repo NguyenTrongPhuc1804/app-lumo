@@ -5,6 +5,7 @@ import { Alert, Image, Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AUTH_DEEP_LINK, describeAuthError, parseAuthLink } from "../lib/auth-link";
 import { decideAuthAction } from "../lib/auth-route";
+import { legalUrl, type LegalPage } from "../lib/legal";
 import { useAuthStore } from "../stores/authStore";
 import { useConfigStore } from "../stores/configStore";
 import { useTheme } from "../hooks/useTheme";
@@ -39,6 +40,19 @@ export default function LoginScreen() {
   useEffect(() => {
     // Server da tra loi bang deep link; o day khong lam gi them.
   }, []);
+
+  const openLegal = async (page: LegalPage) => {
+    const url = legalUrl(serverUrl, page);
+    if (!url) {
+      Alert.alert("Chưa cấu hình server", "Cần địa chỉ server để mở trang điều khoản.");
+      return;
+    }
+    try {
+      await WebBrowser.openBrowserAsync(url);
+    } catch (err: any) {
+      Alert.alert("Không mở được trình duyệt", err?.message ?? "Vui lòng thử lại.");
+    }
+  };
 
   const startLogin = async (provider: "google" | "facebook") => {
     if (busy.current) return;
@@ -185,9 +199,17 @@ export default function LoginScreen() {
       <View style={styles.legalBar}>
         <Text allowFontScaling={false} style={styles.legalText}>
           Bằng việc tiếp tục, bạn đồng ý với
-          <Text allowFontScaling={false} style={styles.legalLink}> Điều khoản</Text> và
-          <Text allowFontScaling={false} style={styles.legalLink}> Chính sách AI Ethics</Text> của Lumo Lens.
         </Text>
+        <View style={styles.legalLinksRow}>
+          <Pressable accessibilityRole="link" accessibilityLabel="Mở Điều khoản sử dụng" onPress={() => openLegal("terms")}>
+            <Text allowFontScaling={false} style={styles.legalLink}>Điều khoản sử dụng</Text>
+          </Pressable>
+          <Text allowFontScaling={false} style={styles.legalText}> và </Text>
+          <Pressable accessibilityRole="link" accessibilityLabel="Mở Chính sách quyền riêng tư" onPress={() => openLegal("privacy")}>
+            <Text allowFontScaling={false} style={styles.legalLink}>Chính sách quyền riêng tư</Text>
+          </Pressable>
+        </View>
+        <Text allowFontScaling={false} style={styles.legalText}>của Lumo Lens.</Text>
       </View>
     </ScrollView>
   );
