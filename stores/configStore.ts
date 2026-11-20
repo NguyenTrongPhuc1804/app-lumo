@@ -152,6 +152,17 @@ export const useConfigStore = create<ConfigState>()(
     {
       name: STORAGE_KEY,
       storage: createJSONStorage(() => configStorage),
+      merge: (persistedState, currentState) => {
+        const saved = persistedState as Partial<ConfigState> | undefined;
+        return {
+          ...currentState,
+          ...saved,
+          // URL rong tu ban cu khong duoc ghi de URL moi trong bien moi truong.
+          serverUrl: typeof saved?.serverUrl === "string" && saved.serverUrl.trim()
+            ? saved.serverUrl
+            : currentState.serverUrl,
+        };
+      },
       // Chỉ lưu cấu hình người dùng chọn, không lưu cờ và hàm.
       partialize: (state) => ({
         serverUrl: state.serverUrl,

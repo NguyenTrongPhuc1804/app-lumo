@@ -56,6 +56,32 @@ test('storage trống thì dùng giá trị mặc định và env', async () => 
   assert.equal(s.model, '');
 });
 
+test('URL đã lưu rỗng hoặc chỉ có khoảng trắng thì dùng URL môi trường', async () => {
+  for (const serverUrl of ['', '   ']) {
+    const { useConfigStore } = loadConfig({
+      [CONFIG_KEY]: JSON.stringify({ state: { serverUrl, sourceLang: 'ja', model: 'm1' }, version: 0 }),
+    }, { EXPO_PUBLIC_SERVER_URL: 'https://example.com/lumo' });
+    const s = await loaded(useConfigStore);
+    assert.equal(s.serverUrl, 'https://example.com/lumo');
+    assert.equal(s.sourceLang, 'ja');
+    assert.equal(s.model, 'm1');
+  }
+});
+
+test('URL đã lưu có giá trị không bị URL môi trường ghi đè', async () => {
+  const { useConfigStore } = loadConfig({
+    [CONFIG_KEY]: JSON.stringify({ state: { serverUrl: 'https://saved.example.com' }, version: 0 }),
+  }, { EXPO_PUBLIC_SERVER_URL: 'https://env.example.com' });
+  assert.equal((await loaded(useConfigStore)).serverUrl, 'https://saved.example.com');
+});
+
+test('URL đã lưu và môi trường đều rỗng thì vẫn nạp cấu hình được', async () => {
+  const { useConfigStore } = loadConfig({
+    [CONFIG_KEY]: JSON.stringify({ state: { serverUrl: '' }, version: 0 }),
+  });
+  assert.equal((await loaded(useConfigStore)).serverUrl, '');
+});
+
 test('dữ liệu cũ hỏng thì dùng mặc định, không lỗi', async () => {
   const { useConfigStore } = loadConfig({ 'lumo-lens-settings': 'broken' });
   const s = await loaded(useConfigStore);

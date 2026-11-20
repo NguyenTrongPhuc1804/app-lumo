@@ -50,5 +50,6 @@ test('confirmation explains permanent deletion and admin recreation', () => {
   const { confirmDeletionMessage } = createLoader({}, { process: { env: {} } })('lib/account-deletion.ts');
   assert.match(confirmDeletionMessage({}), /vĩnh viễn/i);
   assert.match(confirmDeletionMessage({}), /không thể hoàn tác/i);
+  assert.match(confirmDeletionMessage({}), /lượt đã dùng.*00:00 giờ Việt Nam/i);
   assert.match(confirmDeletionMessage({ isAdmin: true }), /quản trị/i);
 });
