@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="screen_translator_notification_title">Lumo Lens 正在运行</string>
+  <string name="screen_translator_notification_body">点按悬浮按钮翻译屏幕</string>
+  <string name="screen_translator_button">Lumo Lens 翻译按钮</string>
+  <string name="screen_translator_full_screen">翻译整个屏幕</string>
+  <string name="screen_translator_auto_on">自动翻译：已开启</string>
+  <string name="screen_translator_auto_off">自动翻译：已关闭</string>
+  <string name="screen_translator_fixed_area">翻译固定区域</string>
+  <string name="screen_translator_area">翻译选定区域</string>
+  <string name="screen_translator_clear_story">清除故事上下文</string>
+  <string name="screen_translator_collapse">收起工具栏</string>
+  <string name="screen_translator_stop">关闭翻译按钮</string>
+  <string name="screen_translator_story_changed">你似乎切换了故事。要清除之前的上下文吗？</string>
+  <string name="screen_translator_reset_context">清除上下文</string>
+  <string name="screen_translator_keep_context">保留上下文</string>
+  <string name="screen_translator_context_cleared">已清除故事上下文</string>
+  <string name="screen_translator_guest_auto">可以先试用手动翻译。登录后即可使用自动翻译。</string>
+  <string name="screen_translator_auto_disabled">自动翻译已关闭</string>
+  <string name="screen_translator_auto_enabled">自动翻译已开启</string>
+  <string name="screen_translator_select_area">拖动以选择要翻译的区域</string>
+  <string name="screen_translator_capture_failed">无法截取屏幕</string>
+  <string name="screen_translator_area_outside">选定区域超出屏幕范围</string>
+  <string name="screen_translator_ocr_init_failed">无法启动文字识别</string>
+  <string name="screen_translator_no_text">屏幕上未找到文字</string>
+  <string name="screen_translator_ocr_failed">无法识别文字</string>
+  <string name="screen_translator_result_mismatch">译文数量与文字区域数量不一致</string>
+  <string name="screen_translator_failed">翻译失败</string>
+  <string name="screen_translator_trial_title">试用翻译次数已用完</string>
+  <string name="screen_translator_trial_body">登录后，每天都可获得免费翻译次数。</string>
+  <string name="screen_translator_later">暂不</string>
+  <string name="screen_translator_sign_in">登录</string>
+  <string name="screen_translator_guest_start">重新打开应用以开始试用</string>
+  <string name="screen_translator_guest_load_failed">无法加载试用翻译次数，请重试</string>
+  <string name="screen_translator_guest_expired">试用会话已过期，请点按翻译按钮重试</string>
+  <string name="screen_translator_insufficient_coins">金币不足，无法使用此模型</string>
+  <string name="screen_translator_coins_disabled">暂时无法使用需要金币的模型</string>
+  <string name="screen_translator_guest_rate_limit">操作过于频繁，请稍后再试</string>
+  <string name="screen_translator_session_expired">登录会话已过期，请打开应用重新登录</string>
+  <string name="screen_translator_account_locked">账号已锁定，请联系管理员</string>
+  <string name="screen_translator_paid_required">此功能需要 Pro 或适用的付费翻译模型</string>
+  <string name="screen_translator_basic_network_required">请重新联网验证权限或准备离线翻译</string>
+  <string name="screen_translator_language_pack_required">请先下载所需的语言包再翻译</string>
+  <string name="screen_translator_daily_limit">今天的翻译次数已用完，请明天再试</string>
+  <string name="screen_translator_server_error">服务器返回 HTTP %1$d</string>
+</resources>

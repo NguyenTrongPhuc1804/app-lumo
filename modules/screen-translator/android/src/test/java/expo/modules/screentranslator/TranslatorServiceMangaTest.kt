@@ -16,15 +16,14 @@ class TranslatorServiceMangaTest {
   @Test fun configurationChangeClearsHistoryAndInvalidatesWorkButIdenticalConfigDoesNot() {
     val service = Robolectric.buildService(TranslatorService::class.java).create().get()
     field(service, "windowManager").set(service, service.getSystemService("window"))
-    val update = TranslatorService::class.java.getDeclaredMethod("updateConfig", String::class.java, String::class.java, String::class.java, String::class.java)
-    update.invoke(service, "manga", "en", "vi", "test")
+    service.updateConfig("manga", "en", "vi", "test")
     val context = field(service, "mangaContext").get(service) as MangaContext
     context.append(listOf("Brother"), listOf("Anh"))
     val id = field(service, "workId").getLong(service)
-    update.invoke(service, "manga", "en", "vi", "test")
+    service.updateConfig("manga", "en", "vi", "test")
     assertEquals(id, field(service, "workId").getLong(service))
     assertEquals(1, context.snapshot().size)
-    update.invoke(service, "game", "en", "vi", "test")
+    service.updateConfig("game", "en", "vi", "test")
     assertTrue(context.snapshot().isEmpty())
     assertTrue(field(service, "workId").getLong(service) > id)
     service.onDestroy()

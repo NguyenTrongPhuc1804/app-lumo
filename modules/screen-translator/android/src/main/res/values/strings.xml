@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="screen_translator_notification_title">Lumo Lens is running</string>
+  <string name="screen_translator_notification_body">Tap the floating button to translate the screen</string>
+  <string name="screen_translator_button">Lumo Lens translate button</string>
+  <string name="screen_translator_full_screen">Translate full screen</string>
+  <string name="screen_translator_auto_on">Auto-translate: on</string>
+  <string name="screen_translator_auto_off">Auto-translate: off</string>
+  <string name="screen_translator_fixed_area">Translate fixed area</string>
+  <string name="screen_translator_area">Translate area</string>
+  <string name="screen_translator_clear_story">Clear story context</string>
+  <string name="screen_translator_collapse">Collapse toolbar</string>
+  <string name="screen_translator_stop">Turn off translation button</string>
+  <string name="screen_translator_story_changed">It looks like you switched stories. Clear the previous context?</string>
+  <string name="screen_translator_reset_context">Clear context</string>
+  <string name="screen_translator_keep_context">Keep context</string>
+  <string name="screen_translator_context_cleared">Story context cleared</string>
+  <string name="screen_translator_guest_auto">Try translating manually. Sign in to use auto-translate.</string>
+  <string name="screen_translator_auto_disabled">Auto-translate turned off</string>
+  <string name="screen_translator_auto_enabled">Auto-translate turned on</string>
+  <string name="screen_translator_select_area">Drag to select an area to translate</string>
+  <string name="screen_translator_capture_failed">Could not capture the screen</string>
+  <string name="screen_translator_area_outside">The selected area is outside the screen</string>
+  <string name="screen_translator_ocr_init_failed">Could not start text recognition</string>
+  <string name="screen_translator_no_text">No text found on the screen</string>
+  <string name="screen_translator_ocr_failed">Could not read the text</string>
+  <string name="screen_translator_result_mismatch">The number of translations does not match the number of text regions</string>
+  <string name="screen_translator_failed">Translation failed</string>
+  <string name="screen_translator_trial_title">You’ve used all your trial translations</string>
+  <string name="screen_translator_trial_body">Sign in to get free translations every day.</string>
+  <string name="screen_translator_later">Not now</string>
+  <string name="screen_translator_sign_in">Sign in</string>
+  <string name="screen_translator_guest_start">Reopen the app to start your trial</string>
+  <string name="screen_translator_guest_load_failed">Could not load trial translations. Please try again</string>
+  <string name="screen_translator_guest_expired">Your trial session expired. Tap translate to try again</string>
+  <string name="screen_translator_insufficient_coins">Not enough coins to use this model</string>
+  <string name="screen_translator_coins_disabled">Models that cost coins are currently unavailable</string>
+  <string name="screen_translator_guest_rate_limit">Too many requests. Try again later</string>
+  <string name="screen_translator_session_expired">Your session expired. Open the app to sign in again</string>
+  <string name="screen_translator_account_locked">Your account is locked. Contact an administrator</string>
+  <string name="screen_translator_paid_required">This feature requires Pro or a supported paid translation model</string>
+  <string name="screen_translator_basic_network_required">Reconnect to verify access or prepare offline translations</string>
+  <string name="screen_translator_language_pack_required">Download the required language packs before translating</string>
+  <string name="screen_translator_daily_limit">You’ve reached today’s translation limit. Try again tomorrow</string>
+  <string name="screen_translator_server_error">Server returned HTTP %1$d</string>
+</resources>

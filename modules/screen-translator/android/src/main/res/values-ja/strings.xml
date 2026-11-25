@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="screen_translator_notification_title">Lumo Lens は実行中です</string>
+  <string name="screen_translator_notification_body">フローティングボタンをタップして画面を翻訳</string>
+  <string name="screen_translator_button">Lumo Lens の翻訳ボタン</string>
+  <string name="screen_translator_full_screen">画面全体を翻訳</string>
+  <string name="screen_translator_auto_on">自動翻訳：オン</string>
+  <string name="screen_translator_auto_off">自動翻訳：オフ</string>
+  <string name="screen_translator_fixed_area">固定範囲を翻訳</string>
+  <string name="screen_translator_area">選択範囲を翻訳</string>
+  <string name="screen_translator_clear_story">作品の文脈を消去</string>
+  <string name="screen_translator_collapse">ツールバーを折りたたむ</string>
+  <string name="screen_translator_stop">翻訳ボタンをオフにする</string>
+  <string name="screen_translator_story_changed">別の作品に切り替わったようです。前の作品の文脈を消去しますか？</string>
+  <string name="screen_translator_reset_context">文脈を消去</string>
+  <string name="screen_translator_keep_context">文脈を保持</string>
+  <string name="screen_translator_context_cleared">作品の文脈を消去しました</string>
+  <string name="screen_translator_guest_auto">手動翻訳をお試しください。自動翻訳を使うにはログインしてください。</string>
+  <string name="screen_translator_auto_disabled">自動翻訳をオフにしました</string>
+  <string name="screen_translator_auto_enabled">自動翻訳をオンにしました</string>
+  <string name="screen_translator_select_area">ドラッグして翻訳する範囲を選択</string>
+  <string name="screen_translator_capture_failed">画面をキャプチャできませんでした</string>
+  <string name="screen_translator_area_outside">選択範囲が画面の外にあります</string>
+  <string name="screen_translator_ocr_init_failed">文字認識を開始できませんでした</string>
+  <string name="screen_translator_no_text">画面に文字が見つかりませんでした</string>
+  <string name="screen_translator_ocr_failed">文字を読み取れませんでした</string>
+  <string name="screen_translator_result_mismatch">翻訳結果の数と文字領域の数が一致しません</string>
+  <string name="screen_translator_failed">翻訳に失敗しました</string>
+  <string name="screen_translator_trial_title">お試し翻訳の回数を使い切りました</string>
+  <string name="screen_translator_trial_body">ログインすると、毎日無料で翻訳できます。</string>
+  <string name="screen_translator_later">後で</string>
+  <string name="screen_translator_sign_in">ログイン</string>
+  <string name="screen_translator_guest_start">アプリを開き直してお試しを開始してください</string>
+  <string name="screen_translator_guest_load_failed">お試し翻訳の回数を取得できませんでした。もう一度お試しください</string>
+  <string name="screen_translator_guest_expired">お試しセッションの有効期限が切れました。翻訳ボタンをタップしてやり直してください</string>
+  <string name="screen_translator_insufficient_coins">このモデルを使うにはコインが不足しています</string>
+  <string name="screen_translator_coins_disabled">コインが必要なモデルは現在ご利用いただけません</string>
+  <string name="screen_translator_guest_rate_limit">リクエストが多すぎます。しばらくしてからお試しください</string>
+  <string name="screen_translator_session_expired">ログインセッションの有効期限が切れました。アプリを開いて再度ログインしてください</string>
+  <string name="screen_translator_account_locked">アカウントがロックされています。管理者にお問い合わせください</string>
+  <string name="screen_translator_paid_required">この機能には Pro または対応する有料翻訳モデルが必要です</string>
+  <string name="screen_translator_basic_network_required">再接続して利用権限を確認するか、オフライン翻訳を準備してください</string>
+  <string name="screen_translator_language_pack_required">翻訳する前に必要な言語パックをダウンロードしてください</string>
+  <string name="screen_translator_daily_limit">本日の翻訳上限に達しました。明日またお試しください</string>
+  <string name="screen_translator_server_error">サーバーから HTTP %1$d が返されました</string>
+</resources>

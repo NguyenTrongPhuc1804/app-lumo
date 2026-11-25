@@ -1,6 +1,5 @@
 import { PlusJakartaSans_400Regular, PlusJakartaSans_500Medium, PlusJakartaSans_600SemiBold, PlusJakartaSans_700Bold, useFonts } from "@expo-google-fonts/plus-jakarta-sans";
-import { Stack, router, useSegments } from "expo-router";
-import { useEffect } from "react";
+import { Stack } from "expo-router";
 import { StatusBar } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { useAppearanceStore } from "../stores/appearanceStore";
@@ -8,6 +7,13 @@ import { useAuthStore } from "../stores/authStore";
 import { useConfigStore } from "../stores/configStore";
 import { useAppSync } from "../hooks/useAppSync";
 import { useTheme } from "../hooks/useTheme";
+import { useLanguageStore } from "../stores/languageStore";
+import { useLayoutEffect, useState } from "react";
+import { I18nextProvider } from "react-i18next";
+import { createAppI18n } from "../lib/i18n";
+import { useInterfaceLanguage } from "../hooks/useInterfaceLanguage";
+
+export const unstable_settings = { initialRouteName: "(tabs)" };
 
 // padding tren de khong bi thanh trang thai che
 const TOP = StatusBar.currentHeight ?? 0;
@@ -21,7 +27,8 @@ export default function RootLayout() {
   // Cho biet da co token hay chua, de khong nhay vao tab roi bat dang nhap
   const authReady = useAuthStore((s) => s.hydrated);
 
-  if (!fontsLoaded || !configReady || !appearanceReady || !authReady) return null;
+  const languageReady = useLanguageStore((s) => s.hydrated);
+  if (!fontsLoaded || !configReady || !appearanceReady || !authReady || !languageReady) return null;
 
   return (
     <SafeAreaProvider>
@@ -33,22 +40,18 @@ export default function RootLayout() {
 function AppNavigation() {
   const { BACKGROUND } = useTheme();
   const colorMode = useAppearanceStore((s) => s.colorMode);
-  const token = useAuthStore((s) => s.token);
-  const segments = useSegments();
-  // Dong bo cau hinh native, tai danh sach model va trang thai quyen
+  const language = useInterfaceLanguage();
+  const [i18n] = useState(() => createAppI18n(language));
+
+  useLayoutEffect(() => {
+    if (i18n.language !== language) void i18n.changeLanguage(language);
+  }, [i18n, language]);
+
+  // Khách được vào Trang chủ; hành động cần tài khoản tự mở màn đăng nhập.
   useAppSync();
 
-  // Chua dang nhap thi vao thang man dang nhap. Man /auth phai duoc phep
-  // chay truoc khi co token, neu khong se lap vong.
-  useEffect(() => {
-    if (token) return;
-    const current = segments.join("/");
-    if (current === "login" || current === "auth") return;
-    router.replace("/login");
-  }, [token, segments]);
-
   return (
-    <>
+    <I18nextProvider i18n={i18n}>
         <StatusBar barStyle={colorMode === "dark" ? "light-content" : "dark-content"} />
         <Stack
           screenOptions={{
@@ -56,6 +59,6 @@ function AppNavigation() {
             contentStyle: { backgroundColor: BACKGROUND, paddingTop: TOP },
           }}
         />
-    </>
+    </I18nextProvider>
   );
 }

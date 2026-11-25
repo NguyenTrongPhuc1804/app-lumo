@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="screen_translator_notification_title">Lumo Lens 실행 중</string>
+  <string name="screen_translator_notification_body">플로팅 버튼을 눌러 화면을 번역하세요</string>
+  <string name="screen_translator_button">Lumo Lens 번역 버튼</string>
+  <string name="screen_translator_full_screen">전체 화면 번역</string>
+  <string name="screen_translator_auto_on">자동 번역: 켜짐</string>
+  <string name="screen_translator_auto_off">자동 번역: 꺼짐</string>
+  <string name="screen_translator_fixed_area">고정 영역 번역</string>
+  <string name="screen_translator_area">영역 번역</string>
+  <string name="screen_translator_clear_story">이야기 문맥 지우기</string>
+  <string name="screen_translator_collapse">도구 모음 접기</string>
+  <string name="screen_translator_stop">번역 버튼 끄기</string>
+  <string name="screen_translator_story_changed">다른 이야기로 바뀐 것 같습니다. 이전 문맥을 지울까요?</string>
+  <string name="screen_translator_reset_context">문맥 지우기</string>
+  <string name="screen_translator_keep_context">문맥 유지</string>
+  <string name="screen_translator_context_cleared">이야기 문맥을 지웠습니다</string>
+  <string name="screen_translator_guest_auto">수동 번역을 이용해 보세요. 자동 번역을 사용하려면 로그인하세요.</string>
+  <string name="screen_translator_auto_disabled">자동 번역이 꺼졌습니다</string>
+  <string name="screen_translator_auto_enabled">자동 번역이 켜졌습니다</string>
+  <string name="screen_translator_select_area">드래그하여 번역할 영역을 선택하세요</string>
+  <string name="screen_translator_capture_failed">화면을 캡처할 수 없습니다</string>
+  <string name="screen_translator_area_outside">선택한 영역이 화면 밖에 있습니다</string>
+  <string name="screen_translator_ocr_init_failed">텍스트 인식을 시작할 수 없습니다</string>
+  <string name="screen_translator_no_text">화면에서 텍스트를 찾을 수 없습니다</string>
+  <string name="screen_translator_ocr_failed">텍스트를 읽을 수 없습니다</string>
+  <string name="screen_translator_result_mismatch">번역 결과 수가 텍스트 영역 수와 일치하지 않습니다</string>
+  <string name="screen_translator_failed">번역에 실패했습니다</string>
+  <string name="screen_translator_trial_title">체험 번역 횟수를 모두 사용했습니다</string>
+  <string name="screen_translator_trial_body">로그인하면 매일 무료 번역을 이용할 수 있습니다.</string>
+  <string name="screen_translator_later">나중에</string>
+  <string name="screen_translator_sign_in">로그인</string>
+  <string name="screen_translator_guest_start">앱을 다시 열어 체험을 시작하세요</string>
+  <string name="screen_translator_guest_load_failed">체험 번역 횟수를 불러올 수 없습니다. 다시 시도해 주세요</string>
+  <string name="screen_translator_guest_expired">체험 세션이 만료되었습니다. 번역 버튼을 눌러 다시 시도하세요</string>
+  <string name="screen_translator_insufficient_coins">이 모델을 사용하기에 코인이 부족합니다</string>
+  <string name="screen_translator_coins_disabled">코인이 필요한 모델은 현재 사용할 수 없습니다</string>
+  <string name="screen_translator_guest_rate_limit">요청이 너무 많습니다. 잠시 후 다시 시도하세요</string>
+  <string name="screen_translator_session_expired">로그인 세션이 만료되었습니다. 앱을 열어 다시 로그인하세요</string>
+  <string name="screen_translator_account_locked">계정이 잠겼습니다. 관리자에게 문의하세요</string>
+  <string name="screen_translator_paid_required">이 기능에는 Pro 또는 지원되는 유료 번역 모델이 필요합니다</string>
+  <string name="screen_translator_basic_network_required">다시 연결하여 권한을 확인하거나 오프라인 번역을 준비하세요</string>
+  <string name="screen_translator_language_pack_required">번역하기 전에 필요한 언어 팩을 다운로드하세요</string>
+  <string name="screen_translator_daily_limit">오늘의 번역 한도에 도달했습니다. 내일 다시 시도하세요</string>
+  <string name="screen_translator_server_error">서버가 HTTP %1$d 응답을 반환했습니다</string>
+</resources>

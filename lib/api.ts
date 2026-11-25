@@ -38,6 +38,10 @@ export type AuthUser = {
   dailyLimit: number;
   usageCount: number;
   usageDate: string;
+  coinBalance?: number;
+  coinPaymentsEnabled?: boolean;
+  proExpiresAt?: string | null;
+  playPro?: { productId: string; basePlanId: string; monthlyCoins: number; accountId: string };
 };
 
 // Loi 401 nghia la phien het han; 403 nghia la khong du quyen.
@@ -60,10 +64,17 @@ export async function fetchMe(url: string, token: string): Promise<AuthUser> {
   return data as AuthUser;
 }
 
+export async function verifyPlayPro(url: string, token: string, purchaseToken: string) {
+  if (!apiBase(url)) throw new Error("Chưa cấu hình địa chỉ server");
+  const res = await fetch(`${apiBase(url)}/api/subscription/google-play/verify`, {
+    method: "POST", headers: authHeaders(token), body: JSON.stringify({ purchaseToken }),
+  });
+  if (!res.ok) throw new Error(authError(res.status, await res.json().catch(() => null)));
+}
+
 export const labelOf = (code: string) => LANGS.find((lang) => lang.code === code)?.label ?? code;
 
-type ModelOption = { code: string; label: string };
-
+export type ModelOption = { code: string; label: string; coinPrice?: number; sharedAi?: boolean };
 // Lay danh sach model dang bat tu server, khong co thi tra ve danh sach mac dinh
 export async function fetchModels(url: string): Promise<ModelOption[]> {
   if (!apiBase(url)) return DEFAULT_MODELS;
@@ -74,7 +85,7 @@ export async function fetchModels(url: string): Promise<ModelOption[]> {
   const data = await res.json();
   if (!Array.isArray(data)) throw new Error("Danh sách model không hợp lệ.");
   if (data.length === 0) return DEFAULT_MODELS;
-  return data.map((item: any) => ({ code: item.code, label: item.name || item.code }));
+  return data.map((item: any) => ({ code: item.code, label: item.name || item.code, coinPrice: item.coinPrice ?? 0, ...(item.sharedAi === true && { sharedAi: true }) }));
 }
 
 // Danh sach day du cho man CRUD (can token cua tai khoan admin)
@@ -118,6 +129,16 @@ export async function deleteAccount(serverUrl: string, token: string): Promise<s
   }
 }
 
+export async function fetchGuestQuota(url: string): Promise<{ remaining: number; freeLimit: number }> {
+  const res = await fetch(`${apiBase(url)}/api/guest/session`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ installId: ScreenTranslator.getGuestInstallId() }),
+  });
+  if (!res.ok) throw new Error("Không tải được lượt dùng thử. Vui lòng thử lại.");
+  return await res.json();
+}
+
 // Bat/tat nut dich noi. Tra ve true neu da bat.
 export async function startTranslator(config: {
   mode?: "game" | "manga";
@@ -127,6 +148,7 @@ export async function startTranslator(config: {
   targetLang: string;
   model: string;
   accentColor: string;
+  allowAutomatic?: boolean;
 }): Promise<boolean> {
   return await ScreenTranslator.start(config);
 }

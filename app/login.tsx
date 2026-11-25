@@ -3,7 +3,9 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { Alert, Image, Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { AUTH_DEEP_LINK, describeAuthError, parseAuthLink } from "../lib/auth-link";
+import { useTranslation } from "react-i18next";
+import { AUTH_DEEP_LINK, parseAuthLink } from "../lib/auth-link";
+import { authErrorKey, withErrorDetail } from "../lib/auth-account-format";
 import { decideAuthAction } from "../lib/auth-route";
 import { legalUrl, type LegalPage } from "../lib/legal";
 import { useAuthStore } from "../stores/authStore";
@@ -18,24 +20,21 @@ function authUrl(serverUrl: string, provider: "google" | "facebook") {
   return `${serverUrl.trim().replace(/\/+$/, "")}/api/auth/${provider}/start`;
 }
 
-const PERKS = [
-  "Đồng bộ cấu hình model và hạn mức dịch trên mọi thiết bị",
-  "Token lưu trong kho bảo mật của máy, không lưu mật khẩu",
-  "Dùng nút dịch nổi trên mọi ứng dụng, không cần chuyển app",
-];
-
 export default function LoginScreen() {
   const { styles, ACCENT } = useTheme();
+  const { t } = useTranslation();
+  const loginPerks = t('auth.loginPerks', { returnObjects: true }) as string[];
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ error?: string }>();
   const serverUrl = useConfigStore((s) => s.serverUrl);
   const error = useAuthStore((s) => s.error);
   const completeLogin = useAuthStore((s) => s.completeLogin);
   const [opening, setOpening] = useState(false);
-  const [localError, setLocalError] = useState<string | null>(null);
+  const [localError, setLocalError] = useState<ReturnType<typeof authErrorKey> | "loginClosed">(null);
   const busy = useRef(false);
 
-  const message = localError ?? describeAuthError(params.error ?? null) ?? error;
+  const errorKey = localError ?? authErrorKey(params.error ?? null);
+  const message = errorKey ? t(`auth.${errorKey}`) : error ? withErrorDetail(t('account.accountLoadFailed'), error) : null;
 
   useEffect(() => {
     // Server da tra loi bang deep link; o day khong lam gi them.
@@ -44,24 +43,24 @@ export default function LoginScreen() {
   const openLegal = async (page: LegalPage) => {
     const url = legalUrl(serverUrl, page);
     if (!url) {
-      Alert.alert("Chưa cấu hình server", "Cần địa chỉ server để mở trang điều khoản.");
+      Alert.alert(t('auth.serverMissing'), t('auth.legalServerMissing'), [{ text: t('auth.ok') }]);
       return;
     }
     try {
       await WebBrowser.openBrowserAsync(url);
     } catch (err: any) {
-      Alert.alert("Không mở được trình duyệt", err?.message ?? "Vui lòng thử lại.");
+      Alert.alert(t('auth.browserFailed'), err?.message ?? t('auth.tryAgain'), [{ text: t('auth.ok') }]);
     }
   };
 
   const startLogin = async (provider: "google" | "facebook") => {
     if (busy.current) return;
     if (provider === "facebook") {
-      Alert.alert("Sắp có", "Đăng nhập Facebook sẽ được bật sau. Hiện tại hãy dùng Google.");
+      Alert.alert(t('auth.comingSoon'), t('auth.facebookUnavailable'), [{ text: t('auth.ok') }]);
       return;
     }
     if (!serverUrl.trim()) {
-      Alert.alert("Chưa cấu hình server", "Đăng nhập cần địa chỉ server. Cài đặt trong mã nguồn trước khi build, hoặc liên hệ quản trị viên.");
+      Alert.alert(t('auth.serverMissing'), t('auth.loginServerMissing'), [{ text: t('auth.ok') }]);
       return;
     }
 
@@ -73,21 +72,26 @@ export default function LoginScreen() {
 
       // Custom Tab có thể đóng mà router không bắt được deep link, nên đọc URL trả về luôn.
       if (result.type === "success" && result.url) {
-        const action = decideAuthAction(parseAuthLink(result.url));
+        const link = parseAuthLink(result.url);
+        const action = decideAuthAction(link);
         if (action.type === "login") {
-          await completeLogin(action.token);
-          router.replace(action.target);
+          try {
+            await completeLogin(action.token);
+            router.replace(action.target);
+          } catch (err: any) {
+            Alert.alert(t('account.accountLoadFailed'), err?.message ?? t('auth.tryAgain'), [{ text: t('auth.ok') }]);
+          }
           return;
         }
-        setLocalError(action.message);
+        setLocalError(authErrorKey(link.error) ?? "signInFailed");
         return;
       }
 
       if (result.type === "cancel" || result.type === "dismiss") {
-        setLocalError("Bạn đã đóng trang đăng nhập. Thử lại khi sẵn sàng.");
+        setLocalError("loginClosed");
       }
     } catch (err: any) {
-      Alert.alert("Không mở được trình duyệt", err?.message ?? "Vui lòng thử lại.");
+      Alert.alert(t('auth.browserFailed'), err?.message ?? t('auth.tryAgain'), [{ text: t('auth.ok') }]);
     } finally {
       busy.current = false;
       setOpening(false);
@@ -108,7 +112,7 @@ export default function LoginScreen() {
         </View>
         <View style={styles.syncPill}>
           <View style={styles.syncPillDot} />
-          <Text allowFontScaling={false} style={styles.syncPillText}>SYNC</Text>
+          <Text allowFontScaling={false} style={styles.syncPillText}>{t('auth.sync')}</Text>
         </View>
       </View>
 
@@ -117,17 +121,17 @@ export default function LoginScreen() {
         <View style={styles.loginHeroTop}>
           <View style={styles.loginHeroKicker}>
             <View style={styles.loginHeroDot} />
-            <Text allowFontScaling={false} style={styles.loginHeroKickerText}>LUMO CLOUD KEYRING</Text>
+            <Text allowFontScaling={false} style={styles.loginHeroKickerText}>{t('auth.cloudKeyring')}</Text>
           </View>
           <View style={styles.activeBadge}>
-            <Text allowFontScaling={false} style={styles.activeBadgeText}>HOẠT ĐỘNG</Text>
+            <Text allowFontScaling={false} style={styles.activeBadgeText}>{t('auth.active')}</Text>
           </View>
         </View>
         <View style={styles.loginHeroBody}>
           <View style={{ flex: 1, gap: 3 }}>
-            <Text allowFontScaling={false} style={styles.loginTitle}>Chào mừng đến với Lumo Lens</Text>
+            <Text allowFontScaling={false} style={styles.loginTitle}>{t('auth.welcomeTitle')}</Text>
             <Text allowFontScaling={false} style={styles.loginSubtitle}>
-              Đăng nhập nhanh để đồng bộ dữ liệu và kích hoạt HUD dịch tức thì.
+              {t('auth.welcomeSubtitle')}
             </Text>
           </View>
           <View style={styles.loginHeroIcon}>
@@ -138,7 +142,7 @@ export default function LoginScreen() {
 
       {message ? (
         <View style={styles.infoBox}>
-          <Text allowFontScaling={false} style={styles.hint}>{message}</Text>
+          <Text allowFontScaling={false} accessibilityLiveRegion="polite" style={styles.hint}>{message}</Text>
         </View>
       ) : null}
 
@@ -148,46 +152,50 @@ export default function LoginScreen() {
           <View style={styles.oneTapIcon}>
             <StitchIcon name="speed" size={18} color={ACCENT} />
           </View>
-          <Text allowFontScaling={false} style={styles.oneTapTitle}>Đăng nhập 1-chạm</Text>
-          <Text allowFontScaling={false} style={styles.oneTapSubtitle}>Truy cập an toàn tức thì không cần ghi nhớ mật khẩu</Text>
+          <Text allowFontScaling={false} style={styles.oneTapTitle}>{t('auth.oneTapTitle')}</Text>
+          <Text allowFontScaling={false} style={styles.oneTapSubtitle}>{t('auth.oneTapSubtitle')}</Text>
         </View>
 
         <Pressable
           style={styles.socialButton}
           accessibilityRole="button"
-          accessibilityLabel="Đăng nhập bằng Google"
-          accessibilityState={{ disabled: opening }}
+          accessibilityLabel={opening ? t('auth.openingBrowser') : t('auth.googleSignIn')}
+          accessibilityState={{ disabled: opening, busy: opening }}
           disabled={opening}
           onPress={() => startLogin("google")}
         >
           <View style={styles.socialMarkBox}><GoogleMark size={20} /></View>
-          <Text allowFontScaling={false} style={styles.socialButtonText}>{opening ? "Đang mở trình duyệt…" : "Tiếp tục với Google"}</Text>
+          <Text allowFontScaling={false} style={styles.socialButtonText}>{opening ? t('auth.openingBrowser') : t('auth.googleContinue')}</Text>
         </Pressable>
 
         <Pressable
           style={[styles.socialButton, styles.socialButtonFacebook]}
           accessibilityRole="button"
-          accessibilityLabel="Đăng nhập bằng Facebook"
+          accessibilityLabel={t('auth.facebookSignIn')}
           onPress={() => startLogin("facebook")}
         >
           <View style={styles.socialMarkBox}><FacebookMark size={18} /></View>
-          <Text allowFontScaling={false} style={styles.socialButtonTextOnColor}>Tiếp tục với Facebook</Text>
+          <Text allowFontScaling={false} style={styles.socialButtonTextOnColor}>{t('auth.facebookContinue')}</Text>
         </Pressable>
 
         {/* Dong bao mat van tay, dung cau chu va kieu can giua nhu thiet ke */}
         <View style={styles.fingerprintRow}>
           <FingerprintMark size={14} color={ACCENT} />
-          <Text allowFontScaling={false} style={styles.fingerprintText}>Bảo mật vân tay mã hóa theo chuẩn OAuth 2.0</Text>
+          <Text allowFontScaling={false} style={styles.fingerprintText}>{t('auth.fingerprintSecurity')}</Text>
         </View>
       </View>
+
+      <Pressable style={styles.secondaryButton} accessibilityRole="button" onPress={() => router.canGoBack() ? router.back() : router.replace("/(tabs)")}>
+        <Text style={styles.secondaryButtonText}>{t('auth.home')}</Text>
+      </Pressable>
 
       {/* The quyen loi giong Stitch */}
       <View style={styles.perksCard}>
         <View style={styles.perksTitleRow}>
           <StitchIcon name="layers" size={15} color="#047857" />
-          <Text allowFontScaling={false} style={styles.perksTitle}>Quyền lợi tài khoản Lumo Sync</Text>
+          <Text allowFontScaling={false} style={styles.perksTitle}>{t('auth.perksTitle')}</Text>
         </View>
-        {PERKS.map((text) => (
+        {loginPerks.map((text) => (
           <View key={text} style={styles.perkRow}>
             <View style={styles.perkDot} />
             <Text allowFontScaling={false} style={styles.perkText}>{text}</Text>
@@ -198,18 +206,17 @@ export default function LoginScreen() {
       {/* Footer dieu khoan */}
       <View style={styles.legalBar}>
         <Text allowFontScaling={false} style={styles.legalText}>
-          Bằng việc tiếp tục, bạn đồng ý với
+          {t('auth.legalIntro')}
         </Text>
         <View style={styles.legalLinksRow}>
-          <Pressable accessibilityRole="link" accessibilityLabel="Mở Điều khoản sử dụng" onPress={() => openLegal("terms")}>
-            <Text allowFontScaling={false} style={styles.legalLink}>Điều khoản sử dụng</Text>
+          <Pressable accessibilityRole="link" accessibilityLabel={t('auth.openTerms')} onPress={() => openLegal("terms")}>
+            <Text allowFontScaling={false} style={styles.legalLink}>{t('auth.terms')}</Text>
           </Pressable>
-          <Text allowFontScaling={false} style={styles.legalText}> và </Text>
-          <Pressable accessibilityRole="link" accessibilityLabel="Mở Chính sách quyền riêng tư" onPress={() => openLegal("privacy")}>
-            <Text allowFontScaling={false} style={styles.legalLink}>Chính sách quyền riêng tư</Text>
+          <Text allowFontScaling={false} style={styles.legalText}>{t('auth.legalAnd')}</Text>
+          <Pressable accessibilityRole="link" accessibilityLabel={t('auth.openPrivacy')} onPress={() => openLegal("privacy")}>
+            <Text allowFontScaling={false} style={styles.legalLink}>{t('auth.privacy')}</Text>
           </Pressable>
         </View>
-        <Text allowFontScaling={false} style={styles.legalText}>của Lumo Lens.</Text>
       </View>
     </ScrollView>
   );

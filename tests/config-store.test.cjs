@@ -53,7 +53,7 @@ test('storage trống thì dùng giá trị mặc định và env', async () => 
   assert.equal(s.serverUrl, 'http://env');
   assert.equal(s.sourceLang, 'en');
   assert.equal(s.targetLang, 'vi');
-  assert.equal(s.model, '');
+  assert.equal(s.model, 'ml-kit');
 });
 
 test('URL đã lưu rỗng hoặc chỉ có khoảng trắng thì dùng URL môi trường', async () => {
@@ -118,6 +118,29 @@ test('chọn trùng ngôn ngữ bên kia thì hoán đổi, swapLanguages đổi
   useConfigStore.getState().swapLanguages();
   assert.equal(useConfigStore.getState().sourceLang, 'ja');
   assert.equal(useConfigStore.getState().targetLang, 'vi');
+});
+
+test('danh sách ML Kit có đủ mã, tên địa phương và tìm được tên tiếng Việt không dấu', () => {
+  const { ML_KIT_LANGUAGES, OCR_LANGUAGES, findLanguages } = createLoader()('lib/translation-languages.ts');
+  assert.equal(ML_KIT_LANGUAGES.length, 59);
+  assert.equal(new Set(ML_KIT_LANGUAGES).size, ML_KIT_LANGUAGES.length);
+  assert.ok(!OCR_LANGUAGES.includes('ar'));
+  assert.ok(findLanguages(ML_KIT_LANGUAGES, 'a rap', 'vi').some(({ code, label }) => code === 'ar' && /Ả Rập/i.test(label)));
+  assert.ok(findLanguages(ML_KIT_LANGUAGES, 'ar', 'en').some(({ code }) => code === 'ar'));
+});
+
+test('ngôn ngữ chỉ dùng làm đích không thể bị đảo sang nguồn', async () => {
+  const { useConfigStore } = loadConfig({});
+  await loaded(useConfigStore);
+  const s = useConfigStore.getState();
+  s.chooseLanguage('target', 'ar');
+  s.swapLanguages();
+  s.chooseLanguage('source', 'ar');
+  assert.equal(useConfigStore.getState().sourceLang, 'en');
+  assert.equal(useConfigStore.getState().targetLang, 'ar');
+  s.chooseLanguage('target', 'en');
+  assert.notEqual(useConfigStore.getState().sourceLang, useConfigStore.getState().targetLang);
+  assert.equal(useConfigStore.getState().targetLang, 'en');
 });
 
 test('ghi lỗi không làm app báo unhandled rejection', async () => {

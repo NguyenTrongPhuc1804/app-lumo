@@ -2,7 +2,6 @@ import * as SecureStore from "expo-secure-store";
 import { create } from "zustand";
 import { deleteAccount as apiDeleteAccount, fetchMe, stopTranslator, type AuthUser } from "../lib/api";
 import { useConfigStore } from "./configStore";
-
 const TOKEN_KEY = "lumo-lens-token";
 
 type AuthState = {

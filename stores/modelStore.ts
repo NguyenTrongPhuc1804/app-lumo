@@ -1,9 +1,7 @@
 import { create } from "zustand";
-import { DEFAULT_MODELS, deleteModel, fetchAdminModels, fetchModels, type CustomModel } from "../lib/api";
+import { DEFAULT_MODELS, deleteModel, fetchAdminModels, fetchModels, type CustomModel, type ModelOption } from "../lib/api";
 import { useAuthStore } from "./authStore";
 import { useConfigStore } from "./configStore";
-
-type ModelOption = { code: string; label: string };
 
 type ModelState = {
   modelList: ModelOption[];
@@ -53,7 +51,7 @@ export const useModelStore = create<ModelState>()((set) => ({
       // Đọc model tại thời điểm này, vì người dùng có thể đã chọn model khác
       // trong lúc chờ server trả về.
       const { model, setModel } = useConfigStore.getState();
-      if (!list.some((item) => item.code === model)) setModel(list[0]?.code ?? "");
+      if (model !== "ml-kit" && !list.some((item) => item.code === model)) setModel(list[0]?.code ?? "");
     } catch (err) {
       if (request === modelsRequest) set({ modelsError: messageOf(err) });
     } finally {

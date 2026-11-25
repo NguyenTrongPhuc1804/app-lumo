@@ -1,10 +1,13 @@
-import { useRef, useState } from "react";
-import { ActivityIndicator, Alert, Pressable, Text, View } from "react-native";
-import { confirmDeletionMessage } from "../lib/account-deletion";
+import { lazy, Suspense, useRef, useState } from "react";
+import { ActivityIndicator, Alert, Platform, Pressable, Text, View } from "react-native";
+import { useTranslation } from "react-i18next";
+import { withErrorDetail } from "../lib/auth-account-format";
 import { useAuthStore } from "../stores/authStore";
 import { useTheme } from "../hooks/useTheme";
 import StitchIcon from "./StitchIcon";
 import { GoogleMark } from "./BrandMarks";
+
+const PlayProPanel = lazy(() => import("./PlayProPanel"));
 
 // Hai chu cai dau cua ten, dung khi tai khoan khong co anh dai dien.
 function initialsOf(name: string) {
@@ -21,7 +24,8 @@ function shortIdOf(id: string) {
 }
 
 export default function AccountPanel({ onOpenModels }: { onOpenModels: () => void }) {
-  const { styles, ACCENT, DANGER, TEXT_MUTED } = useTheme();
+  const { styles, ACCENT, DANGER } = useTheme();
+  const { t, i18n } = useTranslation();
   const user = useAuthStore((s) => s.user);
   const error = useAuthStore((s) => s.error);
   const reloadMe = useAuthStore((s) => s.reloadMe);
@@ -36,10 +40,11 @@ export default function AccountPanel({ onOpenModels }: { onOpenModels: () => voi
     deletingRef.current = true;
     let submitted = false;
     const cancel = () => { deletingRef.current = false; };
-    Alert.alert("Xoá tài khoản vĩnh viễn?", confirmDeletionMessage(user), [
-      { text: "Huỷ", style: "cancel", onPress: cancel },
+    const confirmation = t('account.deleteConfirmation');
+    Alert.alert(t('account.deleteTitle'), user.isAdmin ? `${confirmation}\n\n${t('account.deleteAdminNote')}` : confirmation, [
+      { text: t('account.cancel'), style: "cancel", onPress: cancel },
       {
-        text: "Xoá vĩnh viễn",
+        text: t('account.deletePermanently'),
         style: "destructive",
         onPress: async () => {
           if (submitted) return;
@@ -47,9 +52,9 @@ export default function AccountPanel({ onOpenModels }: { onOpenModels: () => voi
           setDeleting(true);
           try {
             const error = await deleteAccount();
-            if (error) Alert.alert("Không xoá được tài khoản", error);
+            if (error) Alert.alert(t('account.deleteFailed'), error, [{ text: t('auth.ok') }]);
           } catch {
-            Alert.alert("Không xoá được tài khoản", "Vui lòng thử lại.");
+            Alert.alert(t('account.deleteFailed'), t('auth.tryAgain'), [{ text: t('auth.ok') }]);
           } finally {
             deletingRef.current = false;
             setDeleting(false);
@@ -65,10 +70,10 @@ export default function AccountPanel({ onOpenModels }: { onOpenModels: () => voi
       <View style={styles.card}>
         <View style={styles.rowBetween}>
           <ActivityIndicator />
-          <Text allowFontScaling={false} style={styles.hint}>{error ?? "Đang tải thông tin tài khoản…"}</Text>
+          <Text allowFontScaling={false} accessibilityLiveRegion="polite" style={styles.hint}>{error ? withErrorDetail(t('account.accountLoadFailed'), error) : t('account.loadingAccount')}</Text>
         </View>
         <Pressable style={styles.secondaryButton} accessibilityRole="button" onPress={() => reloadMe().catch(() => {})}>
-          <Text allowFontScaling={false} style={styles.secondaryButtonText}>Thử lại</Text>
+          <Text allowFontScaling={false} style={styles.secondaryButtonText}>{t('account.retry')}</Text>
         </Pressable>
       </View>
     );
@@ -78,12 +83,15 @@ export default function AccountPanel({ onOpenModels }: { onOpenModels: () => voi
   const used = user.usageCount;
   const remaining = limit > 0 ? Math.max(0, limit - used) : null;
   const filled = limit > 0 ? Math.min(1, used / limit) : 0;
+  const number = new Intl.NumberFormat(i18n.language);
+  const coinBalance = user.coinBalance ?? 0;
+  const planLabel = user.plan === "free" ? t('account.freePlan') : user.plan === "pro" ? t('account.proPlan') : user.plan;
 
   return (
     <>
       {/* The thong tin: avatar trai, ten va email ben phai giong Stitch */}
       <View style={styles.accountCard}>
-        <Text allowFontScaling={false} style={styles.accountIdLine}>LUMO ID: {shortIdOf(user.id)}</Text>
+        <Text allowFontScaling={false} style={styles.accountIdLine}>{t('account.lumoId', { id: shortIdOf(user.id) })}</Text>
         <View style={styles.accountTopRow}>
           <View style={styles.accountAvatarRing}>
             <View style={styles.accountAvatar}>
@@ -93,10 +101,10 @@ export default function AccountPanel({ onOpenModels }: { onOpenModels: () => voi
           <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
             <View style={styles.accountMemberPill}>
               <View style={styles.accountMemberPillDot} />
-              <Text allowFontScaling={false} style={styles.accountMemberPillText}>{user.isAdmin ? "Quản trị viên Lumo" : "Thành viên Lumo"}</Text>
+              <Text allowFontScaling={false} style={styles.accountMemberPillText}>{user.isAdmin ? t('account.admin') : t('account.member')}</Text>
             </View>
-            <Text allowFontScaling={false} style={styles.accountName} numberOfLines={1}>{user.name || "Người dùng Lumo"}</Text>
-            <Text allowFontScaling={false} style={styles.accountEmail} numberOfLines={1}>{user.email || "Chưa có email"}</Text>
+            <Text allowFontScaling={false} style={styles.accountName} numberOfLines={1}>{user.name || t('account.fallbackName')}</Text>
+            <Text allowFontScaling={false} style={styles.accountEmail} numberOfLines={1}>{user.email || t('account.fallbackEmail')}</Text>
           </View>
         </View>
       </View>
@@ -105,25 +113,35 @@ export default function AccountPanel({ onOpenModels }: { onOpenModels: () => voi
       <View style={styles.card}>
         <View style={styles.quotaHeaderRow}>
           <StitchIcon name="speed" size={17} color={ACCENT} />
-          <Text allowFontScaling={false} style={[styles.sectionTitle, { flex: 1 }]}>Hạn mức hôm nay</Text>
-          <Pressable accessibilityRole="button" accessibilityLabel="Cập nhật hạn mức" style={styles.compactIconButton} onPress={() => reloadMe().catch(() => {})}>
+          <Text allowFontScaling={false} style={[styles.sectionTitle, { flex: 1 }]}>{t('account.quotaTitle')}</Text>
+          <Pressable accessibilityRole="button" accessibilityLabel={t('account.refreshQuota')} style={styles.compactIconButton} onPress={() => reloadMe().catch(() => {})}>
             <StitchIcon name="refresh" size={18} color={ACCENT} />
           </Pressable>
         </View>
         {remaining === null ? (
-          <Text allowFontScaling={false} style={styles.hint}>Tài khoản quản trị không bị giới hạn lượt dịch.</Text>
+          <Text allowFontScaling={false} style={styles.hint}>{t('account.unlimited')}</Text>
         ) : (
           <>
-            <Text allowFontScaling={false} style={styles.quotaValue}>{remaining}/{limit}</Text>
+            <Text allowFontScaling={false} style={styles.quotaValue}>{number.format(remaining)}/{number.format(limit)}</Text>
             <View style={styles.quotaTrack}>
               <View style={[styles.quotaFill, { width: `${Math.round(filled * 100)}%` }]} />
             </View>
             <Text allowFontScaling={false} style={styles.hint}>
-              Mỗi lần cần gọi model mới tính một lượt. Câu đã dịch trước đó không bị tính.
+              {t('account.quotaHint')}
             </Text>
           </>
         )}
       </View>
+
+      {user.coinPaymentsEnabled && <View style={styles.card}>
+        <Text style={styles.sectionTitle}>{t('account.wallet')}</Text>
+        <Text style={styles.quotaValue}>{t('account.coinBalance', { count: coinBalance, amount: number.format(coinBalance) })}</Text>
+        <Text style={styles.hint}>{t('account.coinsHint')}</Text>
+      </View>}
+
+      {user.playPro && Platform.OS === 'android' && <Suspense fallback={<ActivityIndicator />}>
+        <PlayProPanel key={user.id} user={user} />
+      </Suspense>}
 
       {/* Danh sach hang co icon mau, giong khoi tien ich trong Stitch */}
       <View style={styles.accountList}>
@@ -132,8 +150,8 @@ export default function AccountPanel({ onOpenModels }: { onOpenModels: () => voi
             <GoogleMark size={18} />
           </View>
           <View style={{ flex: 1, minWidth: 0 }}>
-            <Text allowFontScaling={false} style={styles.accountRowTitle}>Phương thức đăng nhập</Text>
-            <Text allowFontScaling={false} style={styles.accountRowSub}>Email do Google xác thực</Text>
+            <Text allowFontScaling={false} style={styles.accountRowTitle}>{t('account.signInMethod')}</Text>
+            <Text allowFontScaling={false} style={styles.accountRowSub}>{t('account.googleVerified')}</Text>
           </View>
           <Text allowFontScaling={false} style={styles.accountRowValue}>Google</Text>
         </View>
@@ -143,39 +161,39 @@ export default function AccountPanel({ onOpenModels }: { onOpenModels: () => voi
             <StitchIcon name="key" size={18} color={ACCENT} />
           </View>
           <View style={{ flex: 1, minWidth: 0 }}>
-            <Text allowFontScaling={false} style={styles.accountRowTitle}>Gói hiện tại</Text>
+            <Text allowFontScaling={false} style={styles.accountRowTitle}>{t('account.currentPlan')}</Text>
             <Text allowFontScaling={false} style={styles.accountRowSub}>
-              {user.plan === "free" ? "Miễn phí, đổi gói sau" : user.plan}
+              {user.plan === "free" ? t('account.freePlanHint') : planLabel}
             </Text>
           </View>
-          <Text allowFontScaling={false} style={styles.accountRowValue}>{user.plan === "free" ? "Miễn phí" : user.plan}</Text>
+          <Text allowFontScaling={false} style={styles.accountRowValue}>{planLabel}</Text>
         </View>
 
         {user.isAdmin ? (
-          <Pressable style={[styles.accountListRow, { borderBottomWidth: 0 }]} accessibilityRole="button" accessibilityLabel="Mở quản lý Model AI" onPress={onOpenModels}>
+          <Pressable style={[styles.accountListRow, { borderBottomWidth: 0 }]} accessibilityRole="button" accessibilityLabel={t('account.openManageModels')} onPress={onOpenModels}>
             <View style={[styles.accountRowIcon, { backgroundColor: "#F0F9FF", borderColor: "#BAE6FD" }]}>
               <StitchIcon name="memory" size={18} color="#0284C7" />
             </View>
             <View style={{ flex: 1, minWidth: 0 }}>
-              <Text allowFontScaling={false} style={styles.accountRowTitle}>Quản lý Model AI</Text>
-              <Text allowFontScaling={false} style={styles.accountRowSub}>Thêm, sửa, xoá model dịch</Text>
+              <Text allowFontScaling={false} style={styles.accountRowTitle}>{t('account.manageModels')}</Text>
+              <Text allowFontScaling={false} style={styles.accountRowSub}>{t('account.manageModelsHint')}</Text>
             </View>
             <Text allowFontScaling={false} style={styles.accountRowChevron}>›</Text>
           </Pressable>
         ) : null}
       </View>
 
-      {error ? <Text allowFontScaling={false} style={styles.hint}>{error}</Text> : null}
+      {error ? <Text allowFontScaling={false} accessibilityLiveRegion="polite" style={styles.hint}>{withErrorDetail(t('account.accountLoadFailed'), error)}</Text> : null}
 
       <Pressable style={styles.dangerButton} accessibilityRole="button" disabled={deleting} onPress={() => logout()}>
         <StitchIcon name="refresh" size={17} color={DANGER} />
-        <Text allowFontScaling={false} style={styles.dangerButtonText}>Đăng xuất</Text>
+        <Text allowFontScaling={false} style={styles.dangerButtonText}>{t('account.signOut')}</Text>
       </Pressable>
-      <Pressable style={styles.deleteAccountButton} accessibilityRole="button" accessibilityLabel="Xoá tài khoản vĩnh viễn" accessibilityState={{ disabled: deleting }} disabled={deleting} onPress={askDeleteAccount}>
+      <Pressable style={styles.deleteAccountButton} accessibilityRole="button" accessibilityLabel={deleting ? t('account.deletingAccount') : t('account.deleteAccountA11y')} accessibilityState={{ disabled: deleting, busy: deleting }} disabled={deleting} onPress={askDeleteAccount}>
         {deleting ? <ActivityIndicator color={DANGER} /> : <StitchIcon name="delete" size={17} color={DANGER} />}
-        <Text allowFontScaling={false} style={styles.deleteAccountText}>{deleting ? "Đang xoá…" : "Xoá tài khoản"}</Text>
+        <Text allowFontScaling={false} style={styles.deleteAccountText}>{deleting ? t('account.deletingAccount') : t('account.deleteAccount')}</Text>
       </Pressable>
-      <Text allowFontScaling={false} style={styles.caption}>Phiên đăng nhập kéo dài 30 ngày. Đăng xuất sẽ xoá token khỏi máy.</Text>
+      <Text allowFontScaling={false} style={styles.caption}>{t('account.sessionHint')}</Text>
     </>
   );
 }

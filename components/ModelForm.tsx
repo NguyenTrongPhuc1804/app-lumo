@@ -5,10 +5,13 @@ import { useAuthStore } from "../stores/authStore";
 import { useConfigStore } from "../stores/configStore";
 import { useModelStore } from "../stores/modelStore";
 import { useTheme } from "../hooks/useTheme";
+import { useTranslation } from "react-i18next";
+import { mainInterfaceError } from "../lib/main-interface-labels";
 
 // id = "new" thi tao moi, con lai la id model tren server
 export function ModelForm({ id, onClose, saving, onSavingChange }: { id: string; onClose: () => void; saving: boolean; onSavingChange: (value: boolean) => void }) {
   const { styles, ACCENT, TEXT_MUTED, DANGER } = useTheme();
+  const { t } = useTranslation();
   const savingRef = useRef(false);
   const testingRef = useRef(false);
   const serverUrl = useConfigStore((s) => s.serverUrl);
@@ -25,7 +28,11 @@ export function ModelForm({ id, onClose, saving, onSavingChange }: { id: string;
   const [formDescription, setFormDescription] = useState("");
   const [formBaseUrl, setFormBaseUrl] = useState("");
   const [formApiKey, setFormApiKey] = useState("");
-  const [keyTest, setKeyTest] = useState<{ state: "idle" | "loading" | "ok" | "fail"; msg: string }>({ state: "idle", msg: "" });
+  const [keyTest, setKeyTest] = useState<
+    | { state: "idle" | "loading" }
+    | { state: "ok"; sample: string }
+    | { state: "fail"; reason: "missingId" | "http" | "message"; detail?: string | number }
+  >({ state: "idle" });
 
   // Dien san du lieu khi sua. key da che tu server nen khong dien vao o nhap.
   useEffect(() => {
@@ -34,7 +41,7 @@ export function ModelForm({ id, onClose, saving, onSavingChange }: { id: string;
     setFormDescription(editing?.description ?? "");
     setFormBaseUrl(editing?.baseUrl ?? "");
     setFormApiKey("");
-    setKeyTest({ state: "idle", msg: "" });
+    setKeyTest({ state: "idle" });
   }, [id]);
 
   const apiBase = serverUrl.trim().replace(/\/+$/, "");
@@ -44,11 +51,11 @@ export function ModelForm({ id, onClose, saving, onSavingChange }: { id: string;
   const handleTest = async () => {
     if (savingRef.current || testingRef.current) return;
     if (!formCode.trim()) {
-      setKeyTest({ state: "fail", msg: "Nhập Mã Model ID trước" });
+      setKeyTest({ state: "fail", reason: "missingId" });
       return;
     }
     testingRef.current = true;
-    setKeyTest({ state: "loading", msg: "Đang kiểm tra..." });
+    setKeyTest({ state: "loading" });
     try {
       const res = await fetch(`${apiBase}/api/admin/models/verify`, {
         method: "POST",
@@ -62,12 +69,12 @@ export function ModelForm({ id, onClose, saving, onSavingChange }: { id: string;
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setKeyTest({ state: "fail", msg: data.error || `Lỗi ${res.status}` });
+        setKeyTest(data.error ? { state: "fail", reason: "message", detail: data.error } : { state: "fail", reason: "http", detail: res.status });
         return;
       }
-      setKeyTest({ state: "ok", msg: `OK: ${data.sample}` });
+      setKeyTest({ state: "ok", sample: String(data.sample ?? "") });
     } catch (err: any) {
-      setKeyTest({ state: "fail", msg: err.message });
+      setKeyTest({ state: "fail", reason: "message", detail: err.message });
     } finally {
       testingRef.current = false;
     }
@@ -77,11 +84,11 @@ export function ModelForm({ id, onClose, saving, onSavingChange }: { id: string;
   const handleSave = async () => {
     if (savingRef.current || testingRef.current) return;
     if (!formName.trim() || !formCode.trim()) {
-      Alert.alert("Thiếu thông tin", "Vui lòng nhập Tên hiển thị và Mã model.");
+      Alert.alert(t("main.missingInfo"), t("main.missingInfoHint"));
       return;
     }
     if (!token) {
-      Alert.alert("Cần đăng nhập", "Đăng nhập bằng tài khoản quản trị trước khi thêm model.");
+      Alert.alert(t("main.signInRequired"), t("main.signInAdmin"));
       return;
     }
 
@@ -103,7 +110,7 @@ export function ModelForm({ id, onClose, saving, onSavingChange }: { id: string;
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        Alert.alert("Không lưu được", data.error || `Server trả về ${res.status}`);
+        Alert.alert(t("main.cannotSave"), data.error ? mainInterfaceError(String(data.error), t) : t("main.serverStatus", { value: res.status }));
         return;
       }
       if (isNew) setModel(data.model.code);
@@ -113,44 +120,52 @@ export function ModelForm({ id, onClose, saving, onSavingChange }: { id: string;
       reloadAdminModels();
       reloadModels();
     } catch (err: any) {
-      Alert.alert("Lỗi mạng", err.message);
+      Alert.alert(t("main.networkError"), err.message ? mainInterfaceError(String(err.message), t) : t("main.tryAgain"));
     } finally {
       savingRef.current = false;
       onSavingChange(false);
     }
   };
 
+  const testMessage = keyTest.state === "ok" ? t("main.testSuccess", { value: keyTest.sample })
+    : keyTest.state !== "fail" ? ""
+    : keyTest.reason === "missingId" ? t("main.testNeedsId")
+    : keyTest.reason === "http" ? t("main.httpError", { value: keyTest.detail })
+    : keyTest.detail ? mainInterfaceError(String(keyTest.detail), t) : t("main.tryAgain");
+
   return (
     <>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           <StitchIcon name="memory" size={20} color={ACCENT} />
-          <Text allowFontScaling={false} style={styles.sectionTitle}>{isNew ? "Thêm Model AI Mới" : "Chỉnh Sửa Model"}</Text>
+          <Text allowFontScaling={false} style={styles.sectionTitle}>{t(isNew ? "main.newModel" : "main.editModel")}</Text>
         </View>
 
     <ScrollView style={{ flexShrink: 1 }} contentContainerStyle={{ gap: 14, paddingVertical: 8, paddingBottom: 16 }} keyboardShouldPersistTaps="handled">
       <View style={styles.modelFormGroup}>
       <View>
-          <Text allowFontScaling={false} style={styles.inputLabel}>Tên hiển thị (*)</Text>
+          <Text allowFontScaling={false} style={styles.inputLabel}>{t("main.displayName")}</Text>
           <TextInput
             allowFontScaling={false}
             editable={!saving}
             style={styles.input}
             value={formName}
             onChangeText={setFormName}
-            placeholder="Ví dụ: DeepSeek V3, OmniRoute Local"
+            accessibilityLabel={t("main.displayName")}
+            placeholder={t("main.nameExample")}
             placeholderTextColor={TEXT_MUTED}
           />
         </View>
 
         <View>
-          <Text allowFontScaling={false} style={styles.inputLabel}>Mã Model ID (*)</Text>
+          <Text allowFontScaling={false} style={styles.inputLabel}>{t("main.modelId")}</Text>
           <TextInput
             allowFontScaling={false}
             editable={!saving}
             style={styles.input}
             value={formCode}
             onChangeText={setFormCode}
-            placeholder="Ví dụ: deepseek-chat, gpt-4o-mini"
+            accessibilityLabel={t("main.modelId")}
+            placeholder={t("main.idExample")}
             placeholderTextColor={TEXT_MUTED}
             autoCapitalize="none"
             autoCorrect={false}
@@ -158,60 +173,62 @@ export function ModelForm({ id, onClose, saving, onSavingChange }: { id: string;
         </View>
 
         <View>
-          <Text allowFontScaling={false} style={styles.inputLabel}>Mô tả model (tuỳ chọn)</Text>
-          <TextInput allowFontScaling={false} editable={!saving} style={[styles.input, { minHeight: 100, textAlignVertical: "top" }]} value={formDescription} onChangeText={setFormDescription} multiline maxLength={500} placeholder="Điểm mạnh, ngôn ngữ hoặc trường hợp sử dụng…" placeholderTextColor={TEXT_MUTED} accessibilityLabel="Mô tả model" />
-          <Text allowFontScaling={false} style={styles.caption}>{formDescription.length}/500 ký tự</Text>
+          <Text allowFontScaling={false} style={styles.inputLabel}>{t("main.optionalDescription")}</Text>
+          <TextInput allowFontScaling={false} editable={!saving} style={[styles.input, { minHeight: 100, textAlignVertical: "top" }]} value={formDescription} onChangeText={setFormDescription} multiline maxLength={500} placeholder={t("main.descriptionExample")} placeholderTextColor={TEXT_MUTED} accessibilityLabel={t("main.description")} />
+          <Text allowFontScaling={false} style={styles.caption}>{t("main.characterCount", { value: formDescription.length })}</Text>
         </View>
 
         <View>
-          <Text allowFontScaling={false} style={styles.inputLabel}>Base URL (tuỳ chọn)</Text>
+          <Text allowFontScaling={false} style={styles.inputLabel}>{t("main.baseUrl")}</Text>
           <TextInput
             allowFontScaling={false}
             editable={!saving}
             style={styles.input}
             value={formBaseUrl}
             onChangeText={setFormBaseUrl}
-            placeholder="Ví dụ: https://api.deepseek.com hoặc http://192.168.1.46:20128"
+            accessibilityLabel={t("main.baseUrl")}
+            placeholder={t("main.urlExample")}
             placeholderTextColor={TEXT_MUTED}
             autoCapitalize="none"
             autoCorrect={false}
           />
-          <Text allowFontScaling={false} style={styles.hint}>Để trống nếu dùng Base URL mặc định của server.</Text>
+          <Text allowFontScaling={false} style={styles.hint}>{t("main.baseUrlHint")}</Text>
         </View>
 
         <View>
-          <Text allowFontScaling={false} style={styles.inputLabel}>{isNew ? "API Key (*)" : "API Key (để trống nếu giữ nguyên)"}</Text>
+          <Text allowFontScaling={false} style={styles.inputLabel}>{t(isNew ? "main.apiKeyRequired" : "main.apiKeyEdit")}</Text>
           <TextInput
             allowFontScaling={false}
             editable={!saving}
             style={styles.input}
             value={formApiKey}
             onChangeText={setFormApiKey}
+            accessibilityLabel={t(isNew ? "main.apiKeyRequired" : "main.apiKeyEdit")}
             placeholder="sk-..."
             placeholderTextColor={TEXT_MUTED}
             secureTextEntry
             autoCapitalize="none"
             autoCorrect={false}
           />
-          {!isNew ? <Text allowFontScaling={false} style={styles.hint}>Chỉ nhập khi muốn đổi khóa. App không đọc được key cũ đã lưu.</Text> : null}
+          {!isNew ? <Text allowFontScaling={false} style={styles.hint}>{t("main.apiKeyHint")}</Text> : null}
         </View>
 
         <Pressable style={styles.verifyBtn} onPress={handleTest} disabled={saving || keyTest.state === "loading"}>
-          <Text allowFontScaling={false} style={styles.verifyBtnText}>{keyTest.state === "loading" ? "Đang kiểm tra..." : "Kiểm tra kết nối"}</Text>
+          <Text allowFontScaling={false} style={styles.verifyBtnText}>{t(keyTest.state === "loading" ? "main.testing" : "main.verify")}</Text>
         </Pressable>
         {keyTest.state === "ok" || keyTest.state === "fail" ? (
-          <Text allowFontScaling={false} style={[styles.hint, { color: keyTest.state === "ok" ? ACCENT : DANGER }]}>{keyTest.msg}</Text>
+          <Text allowFontScaling={false} style={[styles.hint, { color: keyTest.state === "ok" ? ACCENT : DANGER }]}>{testMessage}</Text>
         ) : null}
 
-        <Text allowFontScaling={false} style={styles.hint}>Server sẽ gọi thử model trước khi lưu. Thất bại thì báo lỗi và không lưu.</Text>
+        <Text allowFontScaling={false} style={styles.hint}>{t("main.serverTestHint")}</Text>
 
         <View style={styles.formFooter}>
           <Pressable style={styles.cancelBtn} disabled={saving} onPress={onClose}>
-            <Text allowFontScaling={false} style={styles.cancelBtnText}>Hủy</Text>
+            <Text allowFontScaling={false} style={styles.cancelBtnText}>{t("main.cancel")}</Text>
           </Pressable>
           <Pressable style={styles.saveBtn} disabled={saving || keyTest.state === "loading"} onPress={handleSave}>
             {saving ? <ActivityIndicator /> : null}
-            <Text allowFontScaling={false} style={styles.saveBtnText}>{saving ? "Đang lưu..." : "Lưu Model"}</Text>
+            <Text allowFontScaling={false} style={styles.saveBtnText}>{t(saving ? "main.saving" : "main.saveModel")}</Text>
           </Pressable>
         </View>
       </View>

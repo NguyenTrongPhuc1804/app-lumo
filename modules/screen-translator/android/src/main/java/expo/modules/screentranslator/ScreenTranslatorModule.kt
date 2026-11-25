@@ -22,6 +22,7 @@ class StartOptions : Record {
   @Field val sourceLang: String = "en"
   @Field val targetLang: String = "vi"
   @Field val accentColor: String = "#14B8A6"
+  @Field val allowAutomatic: Boolean = false
   @Field val model: String = ""
   @Field val mode: String = "game"
 }
@@ -41,6 +42,85 @@ class ScreenTranslatorModule : Module() {
 
   override fun definition() = ModuleDefinition {
     Name("ScreenTranslator")
+
+    Function("getGuestInstallId") {
+      val preferences = context.getSharedPreferences("guest_trial", Context.MODE_PRIVATE)
+      preferences.getString("installId", null) ?: java.util.UUID.randomUUID().toString().also {
+        preferences.edit().putString("installId", it).commit()
+      }
+    }
+
+    Function("getDeviceLanguageTags") {
+      TranslatorInterfaceLanguage.deviceLanguageTags(TranslatorService.instance ?: context)
+    }
+
+    Function("setInterfaceLanguage") { language: String ->
+      // Keep the preference write and the live service refresh ordered on the main thread.
+      val app = context.applicationContext
+      android.os.Handler(android.os.Looper.getMainLooper()).post {
+        TranslatorInterfaceLanguage.set(app, language)
+        TranslatorService.instance?.refreshInterfaceLanguage()
+      }
+      Unit
+    }
+
+    AsyncFunction("getDownloadedLanguagePacks") { promise: Promise ->
+      OnDeviceTranslation.downloaded()
+        .addOnSuccessListener { models -> promise.resolve(models.map { it.language }) }
+        .addOnFailureListener { promise.reject("ERR_LANGUAGE_PACK", it.message, it) }
+    }
+
+    AsyncFunction("downloadLanguagePack") { language: String, promise: Promise ->
+      OnDeviceTranslation.download(language)
+        .addOnSuccessListener { promise.resolve(null) }
+        .addOnFailureListener { promise.reject("ERR_LANGUAGE_PACK", it.message, it) }
+    }
+
+    AsyncFunction("deleteLanguagePack") { language: String, promise: Promise ->
+      OnDeviceTranslation.delete(language)
+        .addOnSuccessListener { promise.resolve(null) }
+        .addOnFailureListener { promise.reject("ERR_LANGUAGE_PACK", it.message, it) }
+    }
+
+    AsyncFunction("prepareOfflineTranslation") { serverUrl: String, token: String, count: Int ->
+      if (OfflineTranslationQuota.remaining(context, serverUrl, token) != 0) return@AsyncFunction true
+      val (requestId, requestedCount) = OfflineTranslationQuota.pendingRequest(context, serverUrl, token, count)
+      val started = android.os.SystemClock.elapsedRealtime()
+      val connection = java.net.URL("${serverUrl.trim().trimEnd('/')}/api/basic-translation/offline").openConnection() as java.net.HttpURLConnection
+      connection.requestMethod = "POST"
+      connection.instanceFollowRedirects = false
+      connection.connectTimeout = 10000
+      connection.readTimeout = 10000
+      connection.doOutput = true
+      connection.setRequestProperty("Content-Type", "application/json")
+      connection.setRequestProperty("Authorization", "Bearer $token")
+      try {
+        val body = org.json.JSONObject().put("requestId", requestId).put("count", requestedCount)
+        connection.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
+        val status = connection.responseCode
+        if (status != 200) {
+          val payload = connection.errorStream?.bufferedReader()?.use { it.readText() }.orEmpty()
+          val code = runCatching { org.json.JSONObject(payload).optString("code") }.getOrNull()
+          if (status == 429 && code == "DAILY_LIMIT") {
+            OfflineTranslationQuota.finishRequest(context, serverUrl, token)
+            return@AsyncFunction false
+          }
+          if (status == 401 || status == 403) OfflineTranslationQuota.clear(context, serverUrl, token)
+          error("Cannot prepare offline translation: HTTP $status")
+        }
+        OfflineTranslationQuota.save(context, serverUrl, token, connection.inputStream.bufferedReader().use { it.readText() }, started)
+        OfflineTranslationQuota.finishRequest(context, serverUrl, token)
+        true
+      } finally { connection.disconnect() }
+    }
+
+    AsyncFunction("getOfflineTranslationRemaining") { serverUrl: String, token: String ->
+      OfflineTranslationQuota.remaining(context, serverUrl, token)
+    }
+
+    Function("clearOfflineTranslation") { serverUrl: String, token: String ->
+      OfflineTranslationQuota.clear(context, serverUrl, token)
+    }
 
     Function("canDrawOverlays") {
       Settings.canDrawOverlays(context)
@@ -71,7 +151,7 @@ class ScreenTranslatorModule : Module() {
 
     Function("updateConfig") { options: StartOptions ->
       android.os.Handler(android.os.Looper.getMainLooper()).post {
-        TranslatorService.instance?.updateConfig(options.mode, options.sourceLang, options.targetLang, options.model, options.token)
+        TranslatorService.instance?.updateConfig(options.mode, options.sourceLang, options.targetLang, options.model, options.token, options.allowAutomatic)
       }
     }
 
@@ -103,6 +183,7 @@ class ScreenTranslatorModule : Module() {
         .putExtra("accentColor", options.accentColor)
         .putExtra("model", options.model)
         .putExtra("mode", options.mode)
+        .putExtra("allowAutomatic", options.allowAutomatic)
       ContextCompat.startForegroundService(context, intent)
       promise?.resolve(true)
     }

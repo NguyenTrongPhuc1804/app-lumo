@@ -1,4 +1,5 @@
-import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { useTranslation } from "react-i18next";
 import { useConfigStore } from "../stores/configStore";
 import { useModelStore } from "../stores/modelStore";
 import { useServiceStore } from "../stores/serviceStore";
@@ -6,65 +7,113 @@ import { useAppearanceStore } from "../stores/appearanceStore";
 import type { TextSize } from "../lib/appearance-options";
 import { useTheme } from "../hooks/useTheme";
 import StitchIcon from "./StitchIcon";
-
+import LanguageFlag from "./LanguageFlag";
+import LanguagePacksPanel from "./LanguagePacksPanel";
 import ScreenTranslator from "../modules/screen-translator";
+import { INTERFACE_LANGUAGES, type InterfaceLanguage } from "../lib/interface-language";
+import { useLanguageStore } from "../stores/languageStore";
 
-export default function SettingsPanel() {
-  const { styles, ACCENT, TEXT_MUTED } = useTheme();
+const languageOptions = Object.keys(INTERFACE_LANGUAGES) as InterfaceLanguage[];
+const chipIconRow = { flexDirection: "row", alignItems: "center", gap: 6, maxWidth: "100%" } as const;
+const textSizeIcons = { auto: 16, tiny: 11, small: 13, normal: 16, large: 19 } satisfies Record<TextSize, number>;
+
+export default function SettingsPanel({ initialLanguagePack }: { initialLanguagePack?: string } = {}) {
+  const { styles, ACCENT, ACCENT_ON, TEXT_DIM, TEXT_MUTED } = useTheme();
+  const { t, i18n } = useTranslation();
+  const language = i18n.language;
+  const preference = useLanguageStore((s) => s.preference);
+  const setPreference = useLanguageStore((s) => s.setPreference);
+  const languageStorageError = useLanguageStore((s) => s.storageError);
   const colorMode = useAppearanceStore((s) => s.colorMode);
   const textSize = useAppearanceStore((s) => s.textSize);
   const setColorMode = useAppearanceStore((s) => s.setColorMode);
   const setTextSize = useAppearanceStore((s) => s.setTextSize);
-  const storageError = useAppearanceStore((s) => s.storageError);
+  const appearanceStorageError = useAppearanceStore((s) => s.storageError);
   const serverUrl = useConfigStore((s) => s.serverUrl);
   const setServerUrl = useConfigStore((s) => s.setServerUrl);
   const hasOverlayPermission = useServiceStore((s) => s.hasOverlayPermission);
   const reloadModels = useModelStore((s) => s.reloadModels);
   const modelsLoading = useModelStore((s) => s.modelsLoading);
   const modelsError = useModelStore((s) => s.modelsError);
+  // Store trả về chuỗi tiếng Việt thay vì mã lỗi.
+  const appearanceErrorKey = appearanceStorageError === t("settings.appearanceReadError", { lng: "vi" })
+    ? "settings.appearanceReadError"
+    : "settings.appearanceSaveError";
 
   return (
     <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       <View style={styles.card}>
-        <Text allowFontScaling={false} style={styles.pageTitle}>Cài đặt hệ thống</Text>
-        <Text allowFontScaling={false} style={styles.hint}>Quản lý quyền, kết nối và cấu hình quản trị.</Text>
+        <Text allowFontScaling={false} style={styles.pageTitle}>{t("settings.title")}</Text>
+        <Text allowFontScaling={false} style={styles.hint}>{t("settings.description")}</Text>
       </View>
+      {Platform.OS === "android" && initialLanguagePack && <LanguagePacksPanel initialLanguage={initialLanguagePack} />}
       <View style={styles.card}>
-        <Text allowFontScaling={false} style={styles.sectionTitle}>Giao diện</Text>
-        <Text allowFontScaling={false} style={styles.inputLabel}>Chế độ màu</Text>
-        <View style={styles.modelActionsRow}>
-          {(["light", "dark"] as const).map((mode) => (
-            <Pressable key={mode} style={[styles.actionBtn, colorMode === mode && styles.actionBtnAccent]} accessibilityRole="radio" accessibilityState={{ checked: colorMode === mode }} onPress={() => setColorMode(mode)}>
-              <Text allowFontScaling={false} style={colorMode === mode ? styles.actionBtnAccentText : styles.actionBtnText}>{mode === "light" ? "Sáng" : "Tối"}</Text>
-            </Pressable>
-          ))}
+        <Text allowFontScaling={false} style={styles.sectionTitle}>{t("settings.appearance")}</Text>
+        <Text allowFontScaling style={styles.inputLabel}>{t("settings.language")}</Text>
+        <View style={styles.modelActionsRow} accessibilityRole="radiogroup" accessible={false}>
+          {languageOptions.map((option) => {
+            const label = INTERFACE_LANGUAGES[option];
+            const checked = (preference === "system" ? language : preference) === option;
+            return (
+              <Pressable key={option} style={[styles.actionBtn, chipIconRow, checked && styles.actionBtnAccent]} accessibilityRole="radio" accessibilityLabel={label} accessibilityState={{ checked }} onPress={() => void setPreference(option)}>
+                <LanguageFlag language={option} />
+                <Text allowFontScaling style={[checked ? styles.actionBtnAccentText : styles.actionBtnText, { flexShrink: 1 }]}>{label}</Text>
+              </Pressable>
+            );
+          })}
         </View>
-        <Text allowFontScaling={false} style={styles.inputLabel}>Cỡ chữ trong app</Text>
-        <View style={styles.modelActionsRow}>
-          {([{ value: "auto", label: "Tự động" }, { value: "tiny", label: "Cực nhỏ" }, { value: "small", label: "Nhỏ" }, { value: "normal", label: "Tiêu chuẩn" }, { value: "large", label: "Lớn" }] satisfies { value: TextSize; label: string }[]).map((option) => (
-            <Pressable key={option.value} style={[styles.actionBtn, textSize === option.value && styles.actionBtnAccent]} accessibilityRole="radio" accessibilityState={{ checked: textSize === option.value }} onPress={() => setTextSize(option.value)}>
-              <Text allowFontScaling={false} style={textSize === option.value ? styles.actionBtnAccentText : styles.actionBtnText}>{option.label}</Text>
-            </Pressable>
-          ))}
+        {languageStorageError ? (
+          <Text allowFontScaling style={styles.hint}>{t(languageStorageError === "read" ? "settings.readError" : "settings.saveError")}</Text>
+        ) : null}
+        <Text allowFontScaling={false} style={styles.inputLabel}>{t("settings.color")}</Text>
+        <View style={styles.modelActionsRow} accessibilityRole="radiogroup" accessible={false}>
+          {(["light", "dark"] as const).map((mode) => {
+            const checked = colorMode === mode;
+            const label = t(`settings.${mode}`);
+            return (
+              <Pressable key={mode} style={[styles.actionBtn, chipIconRow, checked && styles.actionBtnAccent]} accessibilityRole="radio" accessibilityLabel={label} accessibilityState={{ checked }} onPress={() => setColorMode(mode)}>
+                <StitchIcon name={mode === "light" ? "light_mode" : "dark_mode"} size={16} color={checked ? ACCENT_ON : TEXT_DIM} />
+                <Text style={[checked ? styles.actionBtnAccentText : styles.actionBtnText, { flexShrink: 1 }]}>{label}</Text>
+              </Pressable>
+            );
+          })}
         </View>
-        <View style={styles.infoBox}><Text allowFontScaling={false} style={styles.sectionTitle}>Xem trước cỡ chữ</Text><Text allowFontScaling={false} style={styles.hint}>Tự động chọn theo chiều rộng màn hình. Không thay đổi chữ bản dịch nổi hay cỡ chữ Android.</Text></View>
-        {storageError ? <Text allowFontScaling={false} style={styles.hint}>{storageError}</Text> : null}
+        <Text allowFontScaling={false} style={styles.inputLabel}>{t("settings.size")}</Text>
+        <View style={styles.modelActionsRow} accessibilityRole="radiogroup" accessible={false}>
+          {(["auto", "tiny", "small", "normal", "large"] satisfies TextSize[]).map((option) => {
+            const checked = textSize === option;
+            const label = t(`settings.${option}`);
+            return (
+              <Pressable key={option} style={[styles.actionBtn, chipIconRow, checked && styles.actionBtnAccent]} accessibilityRole="radio" accessibilityLabel={label} accessibilityState={{ checked }} onPress={() => setTextSize(option)}>
+                <StitchIcon name={option === "auto" ? "format_size" : "text_fields"} size={textSizeIcons[option]} color={checked ? ACCENT_ON : TEXT_DIM} />
+                <Text style={[checked ? styles.actionBtnAccentText : styles.actionBtnText, { flexShrink: 1 }]}>{label}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+        <View style={styles.infoBox}><Text allowFontScaling={false} style={styles.sectionTitle}>{t("settings.previewTitle")}</Text><Text allowFontScaling={false} style={styles.hint}>{t("settings.previewHelp")}</Text></View>
+        {appearanceStorageError ? (
+          <Text allowFontScaling={false} style={styles.hint}>
+            {language === "vi" ? appearanceStorageError : t(appearanceErrorKey)}
+          </Text>
+        ) : null}
       </View>
+      {Platform.OS === "android" && !initialLanguagePack && <LanguagePacksPanel />}
       <View style={styles.card}>
-        <Text allowFontScaling={false} style={styles.sectionTitle}>Quyền hệ thống</Text>
-        <View style={styles.iconLabel}><StitchIcon name="layers" color={ACCENT} /><Text allowFontScaling={false} style={[styles.sectionTitle, { flex: 1 }]}>Hiển thị trên ứng dụng khác</Text></View>
+        <Text allowFontScaling={false} style={styles.sectionTitle}>{t("settings.permission")}</Text>
+        <View style={styles.iconLabel}><StitchIcon name="layers" color={ACCENT} /><Text allowFontScaling={false} style={[styles.sectionTitle, { flex: 1 }]}>{t("settings.overlay")}</Text></View>
         {hasOverlayPermission ? (
-          <Text allowFontScaling={false} style={styles.ok}>Đã cấp quyền</Text>
+          <Text allowFontScaling={false} style={styles.ok}>{t("settings.granted")}</Text>
         ) : (
           <Pressable style={styles.secondaryButton} accessibilityRole="button" onPress={() => ScreenTranslator.openOverlaySettings()}>
-            <Text allowFontScaling={false} style={styles.secondaryButtonText}>Mở cài đặt để cấp quyền</Text>
+            <Text allowFontScaling={false} style={styles.secondaryButtonText}>{t("settings.grant")}</Text>
           </Pressable>
         )}
       </View>
 
       <View style={styles.card}>
-        <Text allowFontScaling={false} style={styles.caption}>Kết nối</Text>
-        <View style={styles.iconLabel}><StitchIcon name="dns" color={ACCENT} /><Text allowFontScaling={false} style={styles.sectionTitle}>Địa chỉ server</Text></View>
+        <Text allowFontScaling={false} style={styles.caption}>{t("settings.connection")}</Text>
+        <View style={styles.iconLabel}><StitchIcon name="dns" color={ACCENT} /><Text allowFontScaling={false} style={styles.sectionTitle}>{t("settings.server")}</Text></View>
         <TextInput
           allowFontScaling={false}
           style={styles.input}
@@ -76,22 +125,22 @@ export default function SettingsPanel() {
           keyboardType="url"
           placeholder="http://192.168.1.10:3000"
           placeholderTextColor={TEXT_MUTED}
-          accessibilityLabel="Địa chỉ server"
+          accessibilityLabel={t("settings.server")}
         />
-        {modelsLoading ? <View style={styles.rowBetween}><ActivityIndicator /><Text allowFontScaling={false} style={styles.hint}>Đang tải danh sách model...</Text></View> : null}
-        {modelsError ? <View><Text allowFontScaling={false} style={styles.hint}>{modelsError}</Text><Pressable disabled={modelsLoading} onPress={reloadModels}><Text allowFontScaling={false} style={styles.actionBtnText}>Thử lại</Text></Pressable></View> : null}
+        {modelsLoading ? <View style={styles.rowBetween}><ActivityIndicator /><Text allowFontScaling={false} style={styles.hint}>{t("settings.loading")}</Text></View> : null}
+        {modelsError ? <View><Text allowFontScaling={false} style={styles.hint}>{language === "vi" ? modelsError : t("settings.modelLoadError")}</Text><Pressable disabled={modelsLoading} onPress={reloadModels}><Text allowFontScaling={false} style={styles.actionBtnText}>{t("settings.retry")}</Text></Pressable></View> : null}
         <Pressable style={styles.secondaryButton} accessibilityRole="button" disabled={modelsLoading} onPress={reloadModels}>
-          <View style={styles.iconLabel}><StitchIcon name="speed" size={20} color={ACCENT} /><Text allowFontScaling={false} style={styles.secondaryButtonText}>{modelsLoading ? "Đang kiểm tra..." : "Kiểm tra kết nối"}</Text></View>
+          <View style={styles.iconLabel}><StitchIcon name="speed" size={20} color={ACCENT} /><Text allowFontScaling={false} style={styles.secondaryButtonText}>{t(modelsLoading ? "settings.checking" : "settings.check")}</Text></View>
         </Pressable>
         <View style={styles.infoBox}>
-          <Text allowFontScaling={false} style={styles.hint}>Máy ảo Android dùng 10.0.2.2. Điện thoại thật dùng IP máy tính trong cùng mạng Wi-Fi.</Text>
+          <Text allowFontScaling={false} style={styles.hint}>{t("settings.networkHelp")}</Text>
         </View>
       </View>
 
       <View style={styles.card}>
-        <Text allowFontScaling={false} style={styles.caption}>Tài khoản</Text>
-        <View style={styles.iconLabel}><StitchIcon name="dns" color={ACCENT} /><Text allowFontScaling={false} style={[styles.sectionTitle, { flex: 1 }]}>Quản lý model</Text></View>
-        <Text allowFontScaling={false} style={styles.hint}>Chỉ tài khoản quản trị mới thấy tab Model AI và thêm, sửa, xoá được model. Không còn dùng ADMIN_KEY trong app.</Text>
+        <Text allowFontScaling={false} style={styles.caption}>{t("settings.account")}</Text>
+        <View style={styles.iconLabel}><StitchIcon name="dns" color={ACCENT} /><Text allowFontScaling={false} style={[styles.sectionTitle, { flex: 1 }]}>{t("settings.models")}</Text></View>
+        <Text allowFontScaling={false} style={styles.hint}>{t("settings.roleInfo")}</Text>
       </View>
     </ScrollView>
   );

@@ -55,6 +55,7 @@ function createLoader(mocks = {}, globals = {}) {
   function run(file, fromDir) {
     const real = findFile(path.resolve(fromDir, file));
     if (!real) throw new Error(`Không tìm thấy module: ${file} (từ ${fromDir})`);
+    if (real.endsWith('.json')) return require(real);
     if (cache.has(real)) return cache.get(real).exports;
 
     const module = { exports: {} };

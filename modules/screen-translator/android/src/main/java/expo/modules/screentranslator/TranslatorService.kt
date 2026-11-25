@@ -1,7 +1,11 @@
 package expo.modules.screentranslator
 
 import android.animation.ValueAnimator
+import android.app.AlertDialog
 import android.app.Notification
+import android.net.Uri
+import android.os.SystemClock
+import android.view.ContextThemeWrapper
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
@@ -70,9 +74,10 @@ class TranslatorService : Service() {
 
   companion object {
     @Volatile var isRunning = false
-    var instance: TranslatorService? = null
+    @Volatile var instance: TranslatorService? = null
       private set
     private const val CHANNEL_ID = "lumo_lens_channel"
+    private const val NOTIFICATION_ID = 1
     private const val MAX_BLOCKS = 50
     private const val AUTO_DEBOUNCE_MS = 800L
     private const val STABLE_FRAME_DELAY_MS = 350L
@@ -88,7 +93,13 @@ class TranslatorService : Service() {
   // Cau hinh nhan tu JS
   private var serverUrl = ""
   // Token dang nhap; gui kem header Authorization thay cho app key
-  private var token = ""
+  @Volatile private var token = ""
+  // Chỉ dùng trên networkExecutor, không ghi token khách xuống đĩa.
+  private var guestToken = ""
+  private var guestTokenExpiresAt = 0L
+  private var trialDialog: AlertDialog? = null
+  private class TrialExhausted : Exception()
+  private class TranslationFailure(val messageRes: Int, val statusCode: Int? = null) : Exception()
   private var sourceLang = "en"
   private var targetLang = "vi"
   private var model = ""
@@ -106,12 +117,14 @@ class TranslatorService : Service() {
   // Phan hien thi
   private var widget: LinearLayout? = null // ca nut tron + thanh cong cu
   private var mainButton: TextView? = null
-  private var menu: LinearLayout? = null
+  private var interfaceContext: Context? = null
+  private val menuLabels = mutableMapOf<ImageView, Int>()
   private var clearContextButton: ImageView? = null
   private var autoTranslateButton: ImageView? = null
   private var menuScroll: android.widget.ScrollView? = null
   private val storyDetector = StoryChangeDetector()
   private var storyConfirmation: LinearLayout? = null
+  private var storyMessage: TextView? = null
   private var keepStoryButton: TextView? = null
   private var resetStoryButton: TextView? = null
   private var pendingStoryTitle: String? = null
@@ -153,11 +166,19 @@ class TranslatorService : Service() {
   private fun isCurrentWork(id: Long, generation: Long?): Boolean =
     !destroyed && id == workId && (generation == null || autoState.isCurrent(generation))
 
-  fun updateConfig(newMode: String, newSourceLang: String, newTargetLang: String, newModel: String, newToken: String = "") {
+  private var allowAutomatic = false
+
+  fun updateConfig(newMode: String, newSourceLang: String, newTargetLang: String, newModel: String, newToken: String = "", newAllowAutomatic: Boolean = false) {
+    allowAutomatic = newAllowAutomatic
+    if (!allowAutomatic && autoMode) stopAuto()
     // Token luon duoc cap nhat, ke ca rong (sau khi dang xuat) de khong dung lai token cu.
-    if (token != newToken) token = newToken
+    val tokenChanged = token != newToken
+    if (tokenChanged) {
+      token = newToken
+      if (token.isEmpty() && autoMode) stopAuto()
+    }
     val safeMode = if (newMode == "manga") "manga" else "game"
-    if (mode == safeMode && sourceLang == newSourceLang && targetLang == newTargetLang && model == newModel) return
+    if (!tokenChanged && mode == safeMode && sourceLang == newSourceLang && targetLang == newTargetLang && model == newModel) return
     workId++
     isBusy = false
     hideGlow()
@@ -196,7 +217,7 @@ class TranslatorService : Service() {
     hideGlow()
     widget?.visibility = View.VISIBLE
     mainButton?.text = ""
-    toast("Đã xóa ngữ cảnh truyện")
+    toast(R.string.screen_translator_context_cleared)
     scheduleAutoTranslation()
   }
 
@@ -211,6 +232,7 @@ class TranslatorService : Service() {
     instance = this
     serverUrl = intent.getStringExtra("serverUrl")?.trimEnd('/') ?: ""
     token = intent.getStringExtra("token") ?: ""
+    allowAutomatic = intent.getBooleanExtra("allowAutomatic", false)
     sourceLang = intent.getStringExtra("sourceLang") ?: "en"
     targetLang = intent.getStringExtra("targetLang") ?: "vi"
     model = intent.getStringExtra("model") ?: ""
@@ -247,6 +269,7 @@ class TranslatorService : Service() {
   override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
     super.onConfigurationChanged(newConfig)
     if (destroyed) return
+    refreshInterfaceLanguage()
     clearOverlay()
     if (autoMode) {
       onAutoInteraction()
@@ -261,6 +284,7 @@ class TranslatorService : Service() {
   }
 
   override fun onDestroy() {
+    trialDialog?.dismiss()
     synchronized(pendingPatches) {
       destroyed = true
       pendingPatches.forEach { it.bitmap.recycle() }
@@ -292,17 +316,48 @@ class TranslatorService : Service() {
     notificationManager.createNotificationChannel(
       NotificationChannel(CHANNEL_ID, "Lumo Lens", NotificationManager.IMPORTANCE_LOW)
     )
-    val notification = Notification.Builder(this, CHANNEL_ID)
-      .setContentTitle("Lumo Lens đang chạy")
-      .setContentText("Bấm nút nổi để dịch màn hình")
-      .setSmallIcon(android.R.drawable.ic_dialog_info)
-      .build()
-
+    val notification = buildNotification()
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-      startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION)
+      startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION)
     } else {
-      startForeground(1, notification)
+      startForeground(NOTIFICATION_ID, notification)
     }
+  }
+
+  private fun buildNotification(): Notification = Notification.Builder(this, CHANNEL_ID)
+    .setContentTitle(interfaceString(R.string.screen_translator_notification_title))
+    .setContentText(interfaceString(R.string.screen_translator_notification_body))
+    .setSmallIcon(android.R.drawable.ic_dialog_info)
+    .build()
+
+  // Called on the main thread. Update existing controls without rebuilding the overlay.
+  internal fun refreshInterfaceLanguage() {
+    if (destroyed) return
+    interfaceContext = TranslatorInterfaceLanguage.localizedContext(this)
+    mainButton?.contentDescription = interfaceString(R.string.screen_translator_button)
+    for ((button, label) in menuLabels) {
+      val text = interfaceString(if (button === autoTranslateButton && autoMode) R.string.screen_translator_auto_on else label)
+      button.contentDescription = text
+      button.tooltipText = text
+    }
+    storyMessage?.text = interfaceString(R.string.screen_translator_story_changed)
+    resetStoryButton?.text = interfaceString(R.string.screen_translator_reset_context)
+    keepStoryButton?.text = interfaceString(R.string.screen_translator_keep_context)
+    selectionView?.updateHint(interfaceString(R.string.screen_translator_select_area))
+    trialDialog?.takeIf { it.isShowing }?.let {
+      it.setTitle(interfaceString(R.string.screen_translator_trial_title))
+      it.setMessage(interfaceString(R.string.screen_translator_trial_body))
+      it.getButton(AlertDialog.BUTTON_NEGATIVE).text = interfaceString(R.string.screen_translator_later)
+      it.getButton(AlertDialog.BUTTON_POSITIVE).text = interfaceString(R.string.screen_translator_sign_in)
+    }
+    if (instance === this && isRunning) {
+      getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, buildNotification())
+    }
+  }
+
+  private fun interfaceString(id: Int, vararg args: Any): String {
+    val context = interfaceContext ?: TranslatorInterfaceLanguage.localizedContext(this).also { interfaceContext = it }
+    return if (args.isEmpty()) context.getString(id) else context.getString(id, *args)
   }
 
   // ---------- Chup man hinh ----------
@@ -379,7 +434,8 @@ class TranslatorService : Service() {
     0.299 * Color.red(color) + 0.587 * Color.green(color) + 0.114 * Color.blue(color)
 
   // Tao mot nut tron nho trong thanh cong cu
-  private fun menuButton(iconRes: Int, description: String, onClick: () -> Unit): ImageView {
+  private fun menuButton(iconRes: Int, label: Int, onClick: () -> Unit): ImageView {
+    val description = interfaceString(label)
     val button = ImageView(this)
     button.setImageResource(iconRes)
     button.setColorFilter(Color.parseColor("#334155"))
@@ -397,6 +453,7 @@ class TranslatorService : Service() {
     button.layoutParams = LinearLayout.LayoutParams(dp(44), dp(44)).apply { topMargin = dp(6) }
     button.isFocusable = true
     button.tooltipText = description
+    menuLabels[button] = label
     button.setOnClickListener {
       collapseMenu()
       onClick()
@@ -411,8 +468,8 @@ class TranslatorService : Service() {
     main.setTextColor(Color.parseColor("#047857"))
     main.setTextSize(TypedValue.COMPLEX_UNIT_SP, 22f)
     main.gravity = Gravity.CENTER
-    main.contentDescription = "Nút dịch Lumo Lens"
-    val launcherIcon = packageManager.getApplicationIcon(packageName).mutate()
+    main.contentDescription = interfaceString(R.string.screen_translator_button)
+    val launcherIcon = (packageManager.getApplicationIcon(packageName) ?: packageManager.defaultActivityIcon).mutate()
     val logo = if (launcherIcon is android.graphics.drawable.AdaptiveIconDrawable) launcherIcon.foreground else launcherIcon
     main.background = android.graphics.drawable.LayerDrawable(arrayOf(
       GradientDrawable().apply {
@@ -445,11 +502,12 @@ class TranslatorService : Service() {
       setBackgroundColor(Color.parseColor("#E2E8F0"))
       layoutParams = LinearLayout.LayoutParams(dp(24), dp(1)).apply { topMargin = dp(8) }
     })
-    menuLayout.addView(menuButton(android.R.drawable.ic_menu_camera, "Dịch toàn màn hình") { translateFullScreen() })
-    autoTranslateButton = menuButton(android.R.drawable.ic_menu_rotate, "Dịch tự động") { toggleAuto() }.also {
+    menuLabels.clear()
+    menuLayout.addView(menuButton(android.R.drawable.ic_menu_camera, R.string.screen_translator_full_screen) { translateFullScreen() })
+    autoTranslateButton = menuButton(android.R.drawable.ic_menu_rotate, R.string.screen_translator_auto_off) { toggleAuto() }.also {
       menuLayout.addView(it)
     }
-    val fixedButton = menuButton(android.R.drawable.ic_menu_edit, "Dịch khu vực cố định") { translateFixedArea() }
+    val fixedButton = menuButton(android.R.drawable.ic_menu_edit, R.string.screen_translator_fixed_area) { translateFixedArea() }
     // Nhan giu nut nay de chon lai khu vuc co dinh
     fixedButton.setOnLongClickListener {
       collapseMenu()
@@ -457,16 +515,15 @@ class TranslatorService : Service() {
       true
     }
     menuLayout.addView(fixedButton)
-    menuLayout.addView(menuButton(android.R.drawable.ic_menu_crop, "Dịch khu vực") { startRegionSelect(false) })
-    clearContextButton = menuButton(android.R.drawable.ic_menu_delete, "Xóa ngữ cảnh truyện") { clearMangaContext() }.also {
+    menuLayout.addView(menuButton(android.R.drawable.ic_menu_crop, R.string.screen_translator_area) { startRegionSelect(false) })
+    clearContextButton = menuButton(android.R.drawable.ic_menu_delete, R.string.screen_translator_clear_story) { clearMangaContext() }.also {
       it.visibility = if (mode == "manga") View.VISIBLE else View.GONE
       menuLayout.addView(it)
     }
-    menuLayout.addView(menuButton(android.R.drawable.ic_menu_close_clear_cancel, "Thu gọn thanh công cụ") { collapseMenu() })
-    menuLayout.addView(menuButton(android.R.drawable.ic_lock_power_off, "Tắt nút dịch") { stopSelf() }.apply {
+    menuLayout.addView(menuButton(android.R.drawable.ic_menu_close_clear_cancel, R.string.screen_translator_collapse) { collapseMenu() })
+    menuLayout.addView(menuButton(android.R.drawable.ic_lock_power_off, R.string.screen_translator_stop) { stopSelf() }.apply {
       setColorFilter(Color.parseColor("#BE123C"))
     })
-    menu = menuLayout
 
     val container = LinearLayout(this)
     container.orientation = LinearLayout.VERTICAL
@@ -573,7 +630,9 @@ class TranslatorService : Service() {
     autoTranslateButton?.apply {
       setColorFilter(Color.parseColor(if (autoMode) "#047857" else "#334155"))
       isSelected = autoMode
-      contentDescription = if (autoMode) "Dịch tự động: đang bật" else "Dịch tự động: đang tắt"
+      val description = interfaceString(if (autoMode) R.string.screen_translator_auto_on else R.string.screen_translator_auto_off)
+      contentDescription = description
+      tooltipText = description
       background = GradientDrawable().apply {
         cornerRadius = dp(16).toFloat()
         setColor(Color.parseColor(if (autoMode) "#ECFDF5" else "#FFFFFF"))
@@ -598,6 +657,9 @@ class TranslatorService : Service() {
   private fun hideStoryConfirmation() {
     storyConfirmation?.let { widget?.removeView(it) }
     storyConfirmation = null
+    storyMessage = null
+    resetStoryButton = null
+    keepStoryButton = null
     pendingStoryTitle = null
   }
 
@@ -610,11 +672,12 @@ class TranslatorService : Service() {
     panel.setPadding(dp(10), dp(10), dp(10), dp(10))
     panel.setBackgroundColor(Color.parseColor("#E612302D"))
     val message = TextView(this)
-    message.text = "Có vẻ bạn đã chuyển truyện. Xóa ngữ cảnh cũ?"
+    message.text = interfaceString(R.string.screen_translator_story_changed)
     message.setTextColor(Color.WHITE)
     panel.addView(message)
+    storyMessage = message
     val reset = TextView(this)
-    reset.text = "Xóa ngữ cảnh"
+    reset.text = interfaceString(R.string.screen_translator_reset_context)
     reset.setTextColor(Color.WHITE)
     reset.setPadding(0, dp(12), 0, dp(12))
     reset.setOnClickListener {
@@ -625,7 +688,7 @@ class TranslatorService : Service() {
     panel.addView(reset)
     resetStoryButton = reset
     val keep = TextView(this)
-    keep.text = "Giữ ngữ cảnh"
+    keep.text = interfaceString(R.string.screen_translator_keep_context)
     keep.setTextColor(Color.WHITE)
     keep.setPadding(0, dp(12), 0, dp(12))
     keep.setOnClickListener {
@@ -639,8 +702,8 @@ class TranslatorService : Service() {
     storyConfirmation = panel
   }
 
-  private fun toast(message: String) {
-    Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+  private fun toast(id: Int, vararg args: Any) {
+    Toast.makeText(this, interfaceString(id, *args), Toast.LENGTH_SHORT).show()
   }
 
   // ---------- Cac chuc nang cua nut ----------
@@ -684,17 +747,25 @@ class TranslatorService : Service() {
 
   // Bat / tat che do dich tu dong
   private fun toggleAuto() {
+    if (token.isEmpty()) {
+      toast(R.string.screen_translator_guest_auto)
+      return
+    }
+    if (!autoMode && (!allowAutomatic || (model == "ml-kit" && OfflineTranslationQuota.remaining(this, serverUrl, token) != -1))) {
+      toast(R.string.screen_translator_paid_required)
+      return
+    }
     if (!autoMode && isBusy && activeAutoGeneration == null) return
     if (autoMode) {
       stopAuto()
       clearOverlay()
-      toast("Đã tắt dịch tự động")
+      toast(R.string.screen_translator_auto_disabled)
       return
     }
     clearOverlay()
     autoState.start()
     cachedTranslations = emptyList()
-    toast("Đã bật dịch tự động")
+    toast(R.string.screen_translator_auto_enabled)
     scheduleAutoTranslation()
   }
 
@@ -704,7 +775,7 @@ class TranslatorService : Service() {
     stopAuto()
     clearOverlay()
 
-    val view = SelectionView(this, accentColor) { selected ->
+    val view = SelectionView(this, accentColor, interfaceString(R.string.screen_translator_select_area)) { selected ->
       // SelectionView tra ve toa do cuc bo; chuyen sang toa do anh chup truoc khi OCR.
       val origin = IntArray(2)
       selectionView?.getLocationOnScreen(origin)
@@ -778,7 +849,7 @@ class TranslatorService : Service() {
       if (attempt < 10) {
         handler.postDelayed({ captureAndRead(attempt + 1, region, id, generation, previous) }, 150)
       } else {
-        toast("Không chụp được màn hình")
+        toast(R.string.screen_translator_capture_failed)
         finishWork()
       }
       return
@@ -808,7 +879,7 @@ class TranslatorService : Service() {
     // Cat anh theo khung da chon (neu co), khung nam ngoai man hinh thi cat lai cho vua
     val safeRegion = region?.let { Rect(it) }
     if (safeRegion != null && !safeRegion.intersect(0, 0, bitmap.width, bitmap.height)) {
-      toast("Khu vực nằm ngoài màn hình")
+      toast(R.string.screen_translator_area_outside)
       bitmap.recycle()
       finishWork()
       return
@@ -832,7 +903,8 @@ class TranslatorService : Service() {
       if (cropped !== bitmap) cropped.recycle()
       bitmap.recycle()
       if (generation != null) stopAuto()
-      toast("Không khởi tạo được OCR: ${e.message}")
+      android.util.Log.w("TranslatorService", "Failed to initialize OCR", e)
+      toast(R.string.screen_translator_ocr_init_failed)
       finishWork(id)
       return
     }
@@ -896,7 +968,7 @@ class TranslatorService : Service() {
         }
 
         if (texts.isEmpty()) {
-          if (!autoMode) toast("Không tìm thấy chữ trên màn hình")
+          if (!autoMode) toast(R.string.screen_translator_no_text)
           clearOverlay()
           bitmap.recycle()
           finishWork()
@@ -922,7 +994,7 @@ class TranslatorService : Service() {
       .addOnFailureListener {
         if (isCurrentWork(id, generation)) {
           if (generation != null) stopAuto()
-          toast("Không đọc được chữ")
+          toast(R.string.screen_translator_ocr_failed)
         }
         bitmap.recycle()
         finishWork(id)
@@ -967,12 +1039,25 @@ class TranslatorService : Service() {
   private fun translateAndDraw(bitmap: Bitmap, boxes: List<Rect>, texts: List<String>, lineHeights: List<Int>, id: Long, generation: Long?, key: String, cached: List<String>?) {
     // Chi hien khi can ban dich moi; khong nhap nhay o luot quet dung lai cache RAM.
     if (cached == null) showGlow()
-    val request = buildTranslationRequest(texts)
+    val onDevice = model == "ml-kit"
+    val request = if (cached == null && !onDevice) buildTranslationRequest(texts).put("automatic", generation != null) else null
     val requestMode = mode
+    val requestSource = sourceLang
+    val requestTarget = targetLang
+    val requestToken = token
     networkExecutor.execute {
       try {
-        val translated = cached ?: callServer(request)
-        require(translated.size == boxes.size) { "Số bản dịch không khớp số ô OCR" }
+        if (cached != null && generation != null) authorizeBasicTranslation(requestToken, automatic = true)
+        val translated = cached ?: if (onDevice) {
+          val packs = com.google.android.gms.tasks.Tasks.await(OnDeviceTranslation.downloaded()).map { it.language }
+          if (listOf(requestSource, requestTarget).any { it != "en" && it !in packs }) {
+            throw TranslationFailure(R.string.screen_translator_language_pack_required)
+          }
+          val localResult = OnDeviceTranslation.translate(texts, requestSource, requestTarget)
+          authorizeBasicTranslation(requestToken, generation != null)
+          localResult
+        } else callServer(checkNotNull(request), requestToken)
+        if (translated.size != boxes.size) throw TranslationFailure(R.string.screen_translator_result_mismatch)
         val patches = ArrayList<OverlayPatch>()
         val rects = ArrayList<Rect>()
         val heights = ArrayList<Int>()
@@ -1027,8 +1112,18 @@ class TranslatorService : Service() {
         handler.post {
           if (destroyed) return@post
           if (isCurrentWork(id, generation)) {
-            stopAuto()
-            toast("Dịch lỗi: ${e.message}")
+            if (e is TrialExhausted) {
+              if (token.isEmpty()) showTrialDialog()
+            } else {
+              stopAuto()
+              if (e is TranslationFailure) {
+                val statusCode = e.statusCode
+                if (statusCode == null) toast(e.messageRes) else toast(e.messageRes, statusCode)
+              } else {
+                android.util.Log.w("TranslatorService", "Translation failed", e)
+                toast(R.string.screen_translator_failed)
+              }
+            }
           }
           if (!bitmap.isRecycled) bitmap.recycle()
           finishWork(id)
@@ -1057,29 +1152,154 @@ class TranslatorService : Service() {
     return body
   }
 
-  private fun callServer(body: JSONObject): List<String> {
+  private fun showTrialDialog() {
+    if (trialDialog?.isShowing == true) return
+    val dialog = AlertDialog.Builder(ContextThemeWrapper(this, android.R.style.Theme_Material_Light_Dialog_Alert))
+      .setTitle(interfaceString(R.string.screen_translator_trial_title))
+      .setMessage(interfaceString(R.string.screen_translator_trial_body))
+      .setNegativeButton(interfaceString(R.string.screen_translator_later), null)
+      .setPositiveButton(interfaceString(R.string.screen_translator_sign_in)) { _, _ ->
+        // Tạm ẩn để lớp phủ không chặn thao tác trên màn hình đăng nhập.
+        overlay?.visibility = View.INVISIBLE
+        startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("lumolens://login"))
+          .setPackage(packageName).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+      }.create()
+    dialog.window?.setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY)
+    dialog.show()
+    trialDialog = dialog
+  }
 
-    val connection = URL("$serverUrl/api/translate").openConnection() as HttpURLConnection
+  private fun postJson(path: String, body: JSONObject, bearer: String = ""): HttpURLConnection {
+    val connection = URL("$serverUrl/api/$path").openConnection() as HttpURLConnection
     connection.requestMethod = "POST"
+    connection.instanceFollowRedirects = false
     connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
-    connection.setRequestProperty("Authorization", "Bearer $token")
+    if (bearer.isNotEmpty()) connection.setRequestProperty("Authorization", "Bearer $bearer")
     connection.connectTimeout = 10000
     connection.readTimeout = 40000
     connection.doOutput = true
     try {
       connection.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
+      return connection
+    } catch (e: Exception) {
+      connection.disconnect()
+      throw e
+    }
+  }
+
+  private fun requireGuestToken(checkRemaining: Boolean = true): String {
+    if (SystemClock.elapsedRealtime() >= guestTokenExpiresAt) {
+      val installId = getSharedPreferences("guest_trial", Context.MODE_PRIVATE).getString("installId", null)
+        ?: throw TranslationFailure(R.string.screen_translator_guest_start)
+      val session = postJson("guest/session", JSONObject().put("installId", installId))
+      try {
+        if (session.responseCode != 200) throw TranslationFailure(R.string.screen_translator_guest_load_failed)
+        val data = JSONObject(session.inputStream.bufferedReader().use { it.readText() })
+        if (checkRemaining && data.getInt("remaining") == 0) throw TrialExhausted()
+        guestToken = data.getString("token")
+        guestTokenExpiresAt = SystemClock.elapsedRealtime() + 14 * 60_000L
+      } finally { session.disconnect() }
+    }
+    return guestToken
+  }
+
+  private fun authorizeBasicTranslation(accountToken: String, automatic: Boolean) {
+    val guest = accountToken.isEmpty()
+    val connectivity = getSystemService(android.net.ConnectivityManager::class.java)
+    // A configured server can be reachable on a LAN without public internet.
+    val online = connectivity?.activeNetwork != null
+    if (!online) {
+      if (OfflineTranslationQuota.use(this, serverUrl, accountToken, automatic)) return
+      throw TranslationFailure(R.string.screen_translator_basic_network_required)
+    }
+    val bearer = if (guest) requireGuestToken() else accountToken
+    val path = if (guest) "guest/basic-translation" else "basic-translation"
+    val body = JSONObject().put("requestId", java.util.UUID.randomUUID().toString())
+    if (!guest) body.put("automatic", automatic)
+    val status = try {
+      basicTranslationStatus(path, body, bearer)
+    } catch (_: java.io.IOException) {
+      // Retry the same authorization, not a new charged request.
+      try {
+        basicTranslationStatus(path, body, bearer)
+      } catch (_: java.io.IOException) {
+        // The online request may already have charged a turn. Do not spend an offline turn too.
+        throw TranslationFailure(R.string.screen_translator_basic_network_required)
+      }
+    }
+    when (status) {
+      200 -> Unit
+      401 -> {
+        if (guest) guestTokenExpiresAt = 0
+        throw TranslationFailure(if (guest) R.string.screen_translator_guest_expired else R.string.screen_translator_session_expired)
+      }
+      403 -> throw TranslationFailure(R.string.screen_translator_account_locked)
+      429 -> throw TranslationFailure(R.string.screen_translator_daily_limit)
+      else -> throw TranslationFailure(R.string.screen_translator_server_error, status)
+    }
+  }
+
+  private fun basicTranslationStatus(path: String, body: JSONObject, bearer: String): Int {
+    val connection = postJson(path, body, bearer)
+    try {
       val code = connection.responseCode
+      if (code == 403) {
+        val payload = connection.errorStream?.bufferedReader()?.use { it.readText() }.orEmpty()
+        if (runCatching { JSONObject(payload).optString("code") }.getOrNull() == "PAID_TRANSLATION_REQUIRED") {
+          throw TranslationFailure(R.string.screen_translator_paid_required)
+        }
+      }
+      if (code == 429 && path.startsWith("guest/")) {
+        val payload = connection.errorStream?.bufferedReader()?.use { it.readText() }.orEmpty()
+        if (runCatching { JSONObject(payload).optString("code") }.getOrNull() == "TRIAL_EXHAUSTED") throw TrialExhausted()
+        throw TranslationFailure(R.string.screen_translator_guest_rate_limit)
+      }
+      return code
+    } finally { connection.disconnect() }
+  }
+
+  // Giữ ID khi người dùng thử lại cùng nội dung sau khi mất phản hồi.
+  private var pendingAiRequest: Triple<String, String, String>? = null
+
+  private fun callServer(body: JSONObject, accountToken: String): List<String> {
+    val guest = accountToken.isEmpty()
+    val payload = body.toString()
+    val session = "$serverUrl\n$accountToken"
+    val previous = pendingAiRequest
+    val requestId = if (previous?.first == session && previous.second == payload) previous.third
+      else java.util.UUID.randomUUID().toString()
+    pendingAiRequest = Triple(session, payload, requestId)
+    body.put("requestId", requestId)
+    val connection = if (guest) postJson("guest/ai-translation", body, requireGuestToken(checkRemaining = false))
+      else postJson("ai-translation", body, accountToken)
+    try {
+      val code = connection.responseCode
+      if (code == 403 || code == 429 || code == 503) {
+        val errorBody = connection.errorStream?.bufferedReader()?.use { it.readText() }.orEmpty()
+        when (runCatching { JSONObject(errorBody).optString("code") }.getOrNull()) {
+          "PAID_TRANSLATION_REQUIRED" -> throw TranslationFailure(R.string.screen_translator_paid_required)
+          "TRIAL_EXHAUSTED" -> throw TrialExhausted()
+          "RATE_LIMITED" -> if (guest) throw TranslationFailure(R.string.screen_translator_guest_rate_limit)
+          "INSUFFICIENT_COINS" -> throw TranslationFailure(R.string.screen_translator_insufficient_coins)
+          "COIN_PAYMENTS_DISABLED" -> throw TranslationFailure(R.string.screen_translator_coins_disabled)
+        }
+      }
       // Bao dung ly do de nguoi dung biet phai lam gi, thay vi "server tra ve 429".
       when (code) {
         200 -> {}
-        401 -> throw Exception("Phiên đăng nhập đã hết hạn, mở app để đăng nhập lại")
-        403 -> throw Exception("Tài khoản đã bị khoá, liên hệ quản trị viên")
-        429 -> throw Exception("Hết lượt dịch hôm nay, thử lại vào ngày mai")
-        else -> throw Exception("server trả về $code")
+        401 -> {
+          if (guest) guestTokenExpiresAt = 0
+          throw TranslationFailure(if (guest) R.string.screen_translator_guest_expired else R.string.screen_translator_session_expired)
+        }
+        403 -> throw TranslationFailure(R.string.screen_translator_account_locked)
+        429 -> throw TranslationFailure(R.string.screen_translator_daily_limit)
+        else -> throw TranslationFailure(R.string.screen_translator_server_error, code)
       }
       val json = JSONObject(connection.inputStream.bufferedReader().use { it.readText() })
       val array = json.getJSONArray("translations")
-      return List(array.length()) { array.getString(it) }
+      val translations = List(array.length()) { array.getString(it) }
+      pendingAiRequest = null
+      return translations
     } finally {
       connection.disconnect()
     }
@@ -1221,6 +1441,7 @@ class GlowView(context: Context) : View(context) {
 class SelectionView(
   context: Context,
   private val accentColor: Int,
+  private var hint: String,
   private val onDone: (Rect?) -> Unit
 ) : View(context) {
 
@@ -1242,9 +1463,14 @@ class SelectionView(
   private var startY = 0f
   private var selected: RectF? = null
 
+  fun updateHint(text: String) {
+    hint = text
+    invalidate()
+  }
+
   override fun onDraw(canvas: Canvas) {
     canvas.drawColor(Color.argb(110, 0, 0, 0))
-    canvas.drawText("Kéo để chọn vùng cần dịch", width / 2f, height * 0.15f, hintPaint)
+    canvas.drawText(hint, width / 2f, height * 0.15f, hintPaint)
     selected?.let {
       canvas.drawRect(it, fillPaint)
       canvas.drawRect(it, strokePaint)

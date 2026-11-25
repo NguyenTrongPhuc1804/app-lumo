@@ -11,16 +11,24 @@ import SettingsPanel from "../../components/SettingsPanel";
 import { useAuthStore } from "../../stores/authStore";
 import { tabsForRole, type TabKey } from "../../lib/tabs";
 import { useTheme } from "../../hooks/useTheme";
+import { useTranslation } from "react-i18next";
 import StitchIcon from "../../components/StitchIcon";
 
 // Header + noi dung tab + thanh tab duoi. Them/sua model dung Modal ngay trong tab.
 export default function TabsLayout() {
   const { styles, ACCENT, ACCENT_ON, TEXT_MUTED } = useTheme();
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const user = useAuthStore((s) => s.user);
+  const token = useAuthStore((s) => s.token);
   // Chi admin moi co tab Model AI
   const tabs = tabsForRole(user);
   const [tab, setTab] = useState<TabKey>("home");
+  const [languagePack, setLanguagePack] = useState<string>();
+  const openSettings = (pack?: string) => {
+    setLanguagePack(pack);
+    setTab("settings");
+  };
   const [formId, setFormId] = useState("");
   const [formVisible, setFormVisible] = useState(false);
   const [formInstance, setFormInstance] = useState(0);
@@ -38,7 +46,7 @@ export default function TabsLayout() {
   // de khong dung lai tab Model AI khong con trong danh sach.
   useFocusEffect(
     useCallback(() => {
-      if (!tabs.some((item) => item.key === tab)) setTab("home");
+      if ((!token && tab === "account") || !tabs.some((item) => item.key === tab)) setTab("home");
 
       // Nut back Android: dang mo form thi dong form, dang o tab khac thi ve Trang chu
       const sub = BackHandler.addEventListener("hardwareBackPress", () => {
@@ -52,7 +60,7 @@ export default function TabsLayout() {
         return false;
       });
       return () => sub.remove();
-    }, [formVisible, tab, tabs])
+    }, [formVisible, tab, tabs, token])
   );
 
   const openForm = (id: string) => {
@@ -61,14 +69,14 @@ export default function TabsLayout() {
     setFormVisible(true);
   };
 
-  const subtitle = tab === "models" ? "Quản lý model AI" : tab === "settings" ? "Tùy chỉnh ứng dụng" : tab === "account" ? "Tài khoản của tôi" : "Dịch màn hình";
+  const subtitle = t(tab === "models" ? "main.modelManagement" : tab === "settings" ? "main.customize" : tab === "account" ? "main.myAccount" : "main.screenTranslation");
 
   return (
     <View style={styles.container}>
       <Stack.Screen options={{ headerShown: false }} />
 
       <View style={styles.header}>
-        <Pressable style={styles.headerBrand} accessibilityRole="button" accessibilityLabel="Lumo Lens — mở tài khoản" onPress={() => setTab("account")}>
+        <Pressable style={styles.headerBrand} accessibilityRole="button" accessibilityLabel={t("main.openAccount")} onPress={() => token ? setTab("account") : router.push("/login")}>
           <Image source={require("../../assets/logo.png")} style={styles.brandLogo} resizeMode="contain" />
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text allowFontScaling={false} style={styles.headerTitle}>Lumo Lens</Text>
@@ -76,20 +84,20 @@ export default function TabsLayout() {
           </View>
         </Pressable>
         <View style={styles.headerActions}>
-          {tab === "models" ? <Pressable style={styles.headerAdd} accessibilityRole="button" accessibilityLabel="Thêm model" onPress={() => openForm("new")}><StitchIcon name="add" size={18} color={ACCENT} /><Text allowFontScaling={false} style={styles.manageQuickText}>Thêm</Text></Pressable> : null}
-          <Pressable style={styles.compactIconButton} accessibilityRole="button" accessibilityLabel="Mở cài đặt" onPress={() => setTab("settings")}><StitchIcon name="tune" size={22} color={TEXT_MUTED} /></Pressable>
+          {tab === "models" ? <Pressable style={styles.headerAdd} accessibilityRole="button" accessibilityLabel={t("main.addModel")} onPress={() => openForm("new")}><StitchIcon name="add" size={18} color={ACCENT} /><Text allowFontScaling={false} style={styles.manageQuickText}>{t("main.add")}</Text></Pressable> : null}
+          <Pressable style={styles.compactIconButton} accessibilityRole="button" accessibilityLabel={t("main.openSettings")} onPress={() => openSettings()}><StitchIcon name="tune" size={22} color={TEXT_MUTED} /></Pressable>
         </View>
       </View>
 
       {tab === "settings" ? (
-        <SettingsPanel />
+        <SettingsPanel initialLanguagePack={languagePack} />
       ) : tab === "account" ? (
         <ScrollView contentContainerStyle={styles.content}>
           <AccountPanel onOpenModels={() => setTab("models")} />
         </ScrollView>
       ) : (
         <ScrollView contentContainerStyle={styles.content}>
-          {tab === "home" ? <HomePanel onManageModels={() => setTab("models")} /> : <ModelsPanel onOpenForm={openForm} />}
+          {tab === "home" ? <HomePanel onManageModels={() => setTab("models")} onOpenLanguagePacks={openSettings} /> : <ModelsPanel onOpenForm={openForm} />}
         </ScrollView>
       )}
 
@@ -102,12 +110,12 @@ export default function TabsLayout() {
               style={[styles.tabItem, active && styles.tabItemActive]}
               accessibilityRole="tab"
               accessibilityState={{ selected: active }}
-              onPress={() => setTab(item.key)}
+              onPress={() => item.key === "settings" ? openSettings() : item.key === "account" && !token ? router.push("/login") : setTab(item.key)}
             >
               {item.icon === "person"
                 ? <PersonGlyph size={20} color={active ? ACCENT_ON : TEXT_MUTED} />
                 : <StitchIcon name={item.icon} size={23} color={active ? ACCENT_ON : TEXT_MUTED} />}
-              <Text allowFontScaling={false} style={[styles.tabLabel, active && styles.tabSelected]}>{item.label}</Text>
+              <Text allowFontScaling={false} style={[styles.tabLabel, active && styles.tabSelected]}>{t(`main.${item.key}`)}</Text>
             </Pressable>
           );
         })}
@@ -124,10 +132,10 @@ export default function TabsLayout() {
             <View style={styles.sheetHandle} accessibilityElementsHidden />
             <View style={styles.sheetHeader}>
               <View style={{ flex: 1 }}>
-                <Text allowFontScaling={false} style={styles.sheetTitle}>{formId === "new" ? "Thêm Model AI Mới" : "Chỉnh sửa Model AI"}</Text>
-                <Text allowFontScaling={false} style={styles.sheetSubtitle}>Cấu hình thông tin kết nối với model dịch</Text>
+                <Text allowFontScaling={false} style={styles.sheetTitle}>{t(formId === "new" ? "main.newModel" : "main.editModel")}</Text>
+                <Text allowFontScaling={false} style={styles.sheetSubtitle}>{t("main.configureModel")}</Text>
               </View>
-              <Pressable style={styles.sheetClose} accessibilityRole="button" accessibilityLabel="Đóng biểu mẫu model" onPress={closeForm}>
+              <Pressable style={styles.sheetClose} accessibilityRole="button" accessibilityLabel={t("main.closeForm")} onPress={closeForm}>
                 <Text allowFontScaling={false} style={styles.sheetCloseText}>×</Text>
               </Pressable>
             </View>

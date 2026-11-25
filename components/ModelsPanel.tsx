@@ -5,10 +5,13 @@ import { useFocusEffect } from "expo-router";
 import { useConfigStore } from "../stores/configStore";
 import { useModelStore } from "../stores/modelStore";
 import { useTheme } from "../hooks/useTheme";
+import { useTranslation } from "react-i18next";
+import { mainInterfaceError } from "../lib/main-interface-labels";
 import StitchIcon from "./StitchIcon";
 
 export default function ModelsPanel({ onOpenForm }: { onOpenForm: (id: string) => void }) {
   const { styles, ACCENT, ACCENT_ON, DANGER, TEXT_DIM, TEXT_MUTED } = useTheme();
+  const { t } = useTranslation();
   const [query, setQuery] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const model = useConfigStore((s) => s.model);
@@ -31,14 +34,14 @@ export default function ModelsPanel({ onOpenForm }: { onOpenForm: (id: string) =
 
   // Xoa model tren server
   const handleDelete = (id: string, name: string) => {
-    Alert.alert("Xác nhận xóa", `Bạn có chắc muốn xóa model "${name}" khỏi server?`, [
-      { text: "Hủy", style: "cancel" },
+    Alert.alert(t("main.confirmDelete"), t("main.deleteQuestion", { value: name }), [
+      { text: t("main.cancel"), style: "cancel" },
       {
-        text: "Xóa",
+        text: t("main.delete"),
         style: "destructive",
         onPress: async () => {
           const error = await removeModel(id);
-          if (error) Alert.alert("Không xóa được", error);
+          if (error) Alert.alert(t("main.deleteFailed"), mainInterfaceError(error, t));
         },
       },
     ]);
@@ -49,33 +52,33 @@ export default function ModelsPanel({ onOpenForm }: { onOpenForm: (id: string) =
     <>
       <View style={styles.modelSearch}>
         <StitchIcon name="memory" size={20} color={TEXT_MUTED} />
-        <TextInput allowFontScaling={false} style={[styles.modelSearchInput, { color: TEXT_DIM }]} value={query} onChangeText={setQuery} placeholder="Tìm kiếm model AI…" placeholderTextColor={TEXT_MUTED} accessibilityLabel="Tìm kiếm model AI" />
-        {query ? <Pressable onPress={() => setQuery("")} accessibilityRole="button" accessibilityLabel="Xóa tìm kiếm" style={styles.compactIconButton}><StitchIcon name="refresh" size={20} color={TEXT_MUTED} /></Pressable> : null}
+        <TextInput allowFontScaling={false} style={[styles.modelSearchInput, { color: TEXT_DIM }]} value={query} onChangeText={setQuery} placeholder={`${t("main.search")}…`} placeholderTextColor={TEXT_MUTED} accessibilityLabel={t("main.search")} />
+        {query ? <Pressable onPress={() => setQuery("")} accessibilityRole="button" accessibilityLabel={t("main.clearSearch")} style={styles.compactIconButton}><StitchIcon name="refresh" size={20} color={TEXT_MUTED} /></Pressable> : null}
       </View>
 
       {/* Danh sach model tren server */}
       <View style={{ gap: 12 }}>
         <View style={styles.rowBetween}>
-          <Text allowFontScaling={false} style={styles.sectionTitle}>Model AI ({visibleModels.length})</Text>
-          {customModels.some((item) => item.code === model) ? <View style={styles.activeBadge}><Text allowFontScaling={false} style={styles.activeBadgeText}>1 đang dùng</Text></View> : null}
+          <Text allowFontScaling={false} style={styles.sectionTitle}>{t("main.modelCount", { value: visibleModels.length })}</Text>
+          {customModels.some((item) => item.code === model) ? <View style={styles.activeBadge}><Text allowFontScaling={false} style={styles.activeBadgeText}>{t("main.oneActive")}</Text></View> : null}
         </View>
         {adminModelsLoading ? (
           <View style={styles.rowBetween}>
             <ActivityIndicator />
-            <Text allowFontScaling={false} style={styles.hint}>{customModels.length ? "Đang cập nhật..." : "Đang tải danh sách..."}</Text>
+            <Text allowFontScaling={false} style={styles.hint}>{t(customModels.length ? "main.updatingModels" : "main.loadingModels")}</Text>
           </View>
         ) : null}
         {adminModelsError ? (
           <View>
-            <Text allowFontScaling={false} style={styles.hint}>{adminModelsError}</Text>
+            <Text allowFontScaling={false} style={styles.hint}>{mainInterfaceError(adminModelsError, t)}</Text>
             <Pressable onPress={reloadAdminModels} disabled={adminModelsLoading} accessibilityRole="button">
-              <Text allowFontScaling={false} style={styles.actionBtnText}>Thử lại</Text>
+              <Text allowFontScaling={false} style={styles.actionBtnText}>{t("main.retry")}</Text>
             </Pressable>
           </View>
         ) : null}
         {customModels.length === 0 ? (!adminModelsLoading && !adminModelsError ? (
           <Text allowFontScaling={false} style={styles.emptyText}>
-            Server chưa có model nào. Nhấn "+ Thêm" để tạo model đầu tiên.
+            {t("main.emptyModels")}
           </Text>
         ) : null) : (
           visibleModels.map((item) => {
@@ -85,7 +88,7 @@ export default function ModelsPanel({ onOpenForm }: { onOpenForm: (id: string) =
             return (
               <View key={item.id} style={[styles.modelCardItem, isSelected && styles.modelCardSelected]}>
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                  <Pressable accessibilityRole="button" accessibilityLabel={`${expanded ? "Thu gọn" : "Xem chi tiết"} ${item.name}`} accessibilityState={{ expanded }} style={styles.modelSummary} onPress={() => setExpandedId(expanded ? "" : item.id)}>
+                  <Pressable accessibilityRole="button" accessibilityLabel={t(expanded ? "main.collapse" : "main.expand", { value: item.name })} accessibilityState={{ expanded }} style={styles.modelSummary} onPress={() => setExpandedId(expanded ? "" : item.id)}>
                     <View style={[styles.modelGlyph, isSelected && styles.actionBtnAccent]}><StitchIcon name="memory" size={23} color={isSelected ? ACCENT_ON : ACCENT} /></View>
                     <View style={{ flex: 1, gap: 4 }}>
                       <Text allowFontScaling={false} style={styles.modelNameText}>{item.name}</Text>
@@ -93,20 +96,20 @@ export default function ModelsPanel({ onOpenForm }: { onOpenForm: (id: string) =
                     </View>
                     <StitchIcon name="expand_more" size={20} color={TEXT_MUTED} />
                   </Pressable>
-                  <Pressable accessibilityRole="radio" accessibilityState={{ checked: isSelected, disabled: isDeleting }} accessibilityLabel={`Dùng ${item.name}`} disabled={isDeleting} onPress={() => setModel(item.code)} style={styles.compactIconButton}>
+                  <Pressable accessibilityRole="radio" accessibilityState={{ checked: isSelected, disabled: isDeleting }} accessibilityLabel={t("main.useModel", { value: item.name })} disabled={isDeleting} onPress={() => setModel(item.code)} style={styles.compactIconButton}>
                     <View style={[styles.modelRadio, isSelected && styles.actionBtnAccent]}>{isSelected ? <StitchIcon name="check" size={18} color={ACCENT_ON} /> : null}</View>
                   </Pressable>
                 </View>
-                {isSelected ? <View style={[styles.activeBadge, { alignSelf: "flex-start" }]}><Text allowFontScaling={false} style={styles.activeBadgeText}>Đang dùng</Text></View> : null}
+                {isSelected ? <View style={[styles.activeBadge, { alignSelf: "flex-start" }]}><Text allowFontScaling={false} style={styles.activeBadgeText}>{t("main.active")}</Text></View> : null}
                 {expanded ? <>
                 <View style={styles.modelDetails}>
                   {item.description ? <Text allowFontScaling={false} style={styles.hint}>{item.description}</Text> : null}
-                  <Text allowFontScaling={false} style={styles.modelUrlText}>{item.baseUrl || "Base URL mặc định của server"}</Text>
+                  <Text allowFontScaling={false} style={styles.modelUrlText}>{item.baseUrl || t("main.defaultBaseUrl")}</Text>
                 </View>
 
                 <View style={styles.modelActionsRow}>
-                  <Pressable style={styles.actionBtn} disabled={isDeleting} accessibilityRole="button" accessibilityLabel={`Chỉnh sửa ${item.name}`} onPress={() => onOpenForm(item.id)}>
-                    <View style={styles.iconLabel}><StitchIcon name="edit" size={18} color={TEXT_DIM} /><Text allowFontScaling={false} style={styles.actionBtnText}>Sửa</Text></View>
+                  <Pressable style={styles.actionBtn} disabled={isDeleting} accessibilityRole="button" accessibilityLabel={t("main.editNamedModel", { value: item.name })} onPress={() => onOpenForm(item.id)}>
+                    <View style={styles.iconLabel}><StitchIcon name="edit" size={18} color={TEXT_DIM} /><Text allowFontScaling={false} style={styles.actionBtnText}>{t("main.edit")}</Text></View>
                   </Pressable>
                   <Pressable
                     style={[styles.actionBtn, styles.actionBtnAccent]}
@@ -114,12 +117,12 @@ export default function ModelsPanel({ onOpenForm }: { onOpenForm: (id: string) =
                     disabled={isDeleting}
                     onPress={() => setModel(item.code)}
                   >
-                    <View style={styles.iconLabel}><StitchIcon name="check" size={18} color={ACCENT_ON} /><Text allowFontScaling={false} style={styles.actionBtnAccentText}>Dùng</Text></View>
+                    <View style={styles.iconLabel}><StitchIcon name="check" size={18} color={ACCENT_ON} /><Text allowFontScaling={false} style={styles.actionBtnAccentText}>{t("main.use")}</Text></View>
                   </Pressable>
                   <Pressable style={styles.actionBtnDanger} disabled={isDeleting} accessibilityRole="button" onPress={() => handleDelete(item.id, item.name)}>
                     <View style={styles.iconLabel}>
                       {isDeleting ? <ActivityIndicator /> : <StitchIcon name="delete" size={18} color={DANGER} />}
-                      <Text allowFontScaling={false} style={styles.actionBtnDangerText}>{isDeleting ? "Đang xóa..." : "Xóa"}</Text>
+                      <Text allowFontScaling={false} style={styles.actionBtnDangerText}>{t(isDeleting ? "main.deleting" : "main.delete")}</Text>
                     </View>
                   </Pressable>
                 </View>
@@ -130,7 +133,7 @@ export default function ModelsPanel({ onOpenForm }: { onOpenForm: (id: string) =
         )}
       </View>
 
-      {customModels.length > 0 && visibleModels.length === 0 ? <View style={styles.card}><Text allowFontScaling={false} style={styles.hint}>Không tìm thấy model phù hợp. Thử tên, mã hoặc mô tả khác.</Text></View> : null}
+      {customModels.length > 0 && visibleModels.length === 0 ? <View style={styles.card}><Text allowFontScaling={false} style={styles.hint}>{t("main.noSearchResults")}</Text></View> : null}
     </>
   );
 }

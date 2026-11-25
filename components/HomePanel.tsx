@@ -1,8 +1,13 @@
 import { useEffect, useState } from "react";
 import { LinearGradient } from "expo-linear-gradient";
-import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Alert, AppState, Modal, Platform, Pressable, ScrollView, Text, View } from "react-native";
 import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withSpring, withTiming } from "react-native-reanimated";
-import { LANGS, labelOf, startTranslator, stopTranslator } from "../lib/api";
+import { router } from "expo-router";
+import { fetchGuestQuota, startTranslator, stopTranslator } from "../lib/api";
+import { ML_KIT_LANGUAGES, OCR_LANGUAGES } from "../lib/translation-languages";
+import TranslationLanguagePicker from "./TranslationLanguagePicker";
+import { useTranslation } from "react-i18next";
+import { canUseAiModel, mainInterfaceError, modelOptionLabel, translationLanguageLabel } from "../lib/main-interface-labels";
 import { useConfigStore } from "../stores/configStore";
 import { useAuthStore } from "../stores/authStore";
 import { useModelStore } from "../stores/modelStore";
@@ -24,10 +29,13 @@ function GestureRow({ name, action, last }: { name: string; action: string; last
   );
 }
 
-export default function HomePanel({ onManageModels }: { onManageModels: () => void }) {
+export default function HomePanel({ onManageModels, onOpenLanguagePacks }: { onManageModels: () => void; onOpenLanguagePacks: (language: string) => void }) {
   const { styles, ACCENT, ACCENT_ON, TEXT_DIM } = useTheme();
+  const { t, i18n } = useTranslation();
+  const locale = i18n?.resolvedLanguage;
   const serverUrl = useConfigStore((s) => s.serverUrl);
   const token = useAuthStore((s) => s.token);
+  const user = useAuthStore((s) => s.user);
   const sourceLang = useConfigStore((s) => s.sourceLang);
   const targetLang = useConfigStore((s) => s.targetLang);
   const model = useConfigStore((s) => s.model);
@@ -45,6 +53,45 @@ export default function HomePanel({ onManageModels }: { onManageModels: () => vo
   const setRunning = useServiceStore((s) => s.setRunning);
   const hasOverlayPermission = useServiceStore((s) => s.hasOverlayPermission);
   const [pickerFor, setPickerFor] = useState<"source" | "target" | "model" | null>(null);
+
+  const [trial, setTrial] = useState<{ remaining: number; freeLimit: number } | null>(null);
+  const [starting, setStarting] = useState(false);
+  const [packs, setPacks] = useState<string[] | null>(null);
+  const [packError, setPackError] = useState(false);
+  const paidFeatures = Boolean(token) && (user?.isAdmin === true || !!(user?.proExpiresAt && Date.parse(user.proExpiresAt) > Date.now()));
+  const coinEnabled = user?.coinPaymentsEnabled === true;
+  const basic = !canUseAiModel(modelList.find(item => item.code === model), Boolean(token), paidFeatures, coinEnabled);
+  const missingPacks = basic && packs && !packError
+    ? [sourceLang, targetLang].filter(lang => lang !== "en" && !packs.includes(lang)) : [];
+
+  const refreshPacks = async () => {
+    try {
+      setPacks(await ScreenTranslator.getDownloadedLanguagePacks());
+      setPackError(false);
+    } catch { setPackError(true); }
+  };
+  useEffect(() => {
+    if (Platform.OS !== "android" || !basic) return;
+    void refreshPacks();
+    const subscription = AppState.addEventListener("change", state => { if (state === "active") void refreshPacks(); });
+    return () => subscription.remove();
+  }, [basic]);
+
+  useEffect(() => {
+    setTrial(null);
+    if (token || !serverUrl.trim() || Platform.OS !== "android") return;
+    let request = 0;
+    const refresh = async () => {
+      const id = ++request;
+      try {
+        const quota = await fetchGuestQuota(serverUrl);
+        if (id === request) setTrial(quota);
+      } catch { if (id === request) setTrial(null); }
+    };
+    void refresh();
+    const subscription = AppState.addEventListener("change", (state) => { if (state === "active") void refresh(); });
+    return () => { request++; subscription.remove(); };
+  }, [serverUrl, token]);
 
   // Hieu ung: nut tron co lai khi nhan, phap phong khi dang bat; nut doi ngon ngu xoay 180 do
   const pressScale = useSharedValue(1);
@@ -71,46 +118,74 @@ export default function HomePanel({ onManageModels }: { onManageModels: () => vo
       return;
     }
     if (!hasOverlayPermission) {
-      Alert.alert("Cần quyền hiển thị", "Cho phép hiển thị trên ứng dụng khác để nút dịch nổi lên được.", [
-        { text: "Để sau", style: "cancel" },
-        { text: "Mở cài đặt", onPress: () => ScreenTranslator.openOverlaySettings() },
+      Alert.alert(t("main.overlayRequired"), t("main.overlayExplain"), [
+        { text: t("main.later"), style: "cancel" },
+        { text: t("main.openSettings"), onPress: () => ScreenTranslator.openOverlaySettings() },
       ]);
       return;
     }
     if (!serverUrl.trim()) {
-      Alert.alert("Thiếu địa chỉ server", "Vào tab Cài đặt để nhập địa chỉ server trước khi bắt đầu.");
+      Alert.alert(t("main.serverRequired"), t("main.serverExplain"));
       return;
     }
-    // Chưa đăng nhập thì server sẽ từ chối; báo ngay để người dùng biết đường.
-    if (!token) {
-      Alert.alert("Cần đăng nhập", "Đăng nhập tài khoản trước khi bật dịch màn hình.");
-      return;
-    }
-
-    const granted = await startTranslator({ serverUrl, token, sourceLang, targetLang, model, mode: translationMode, accentColor: "#BDB5FF" });
-    if (granted) {
-      setRunning(true);
-    } else {
-      Alert.alert("Chưa được cấp quyền", "Bạn cần cho phép chụp màn hình để dịch.");
-    }
+    setStarting(true);
+    try {
+      if (basic && Platform.OS === "android") {
+        const downloaded = await ScreenTranslator.getDownloadedLanguagePacks();
+        setPacks(downloaded);
+        setPackError(false);
+        const missing = [sourceLang, targetLang].find(lang => lang !== "en" && !downloaded.includes(lang));
+        if (missing) {
+          Alert.alert(t("main.languagePackRequired"), t("main.languagePackPath"), [
+            { text: t("main.later"), style: "cancel" },
+            { text: t("main.languagePacks"), onPress: () => onOpenLanguagePacks(missing) },
+          ]);
+          return;
+        }
+      }
+      if (!token) {
+        const quota = await fetchGuestQuota(serverUrl);
+        setTrial(quota);
+        if (quota.remaining === 0) {
+          Alert.alert(t("main.trialExhausted"), t("main.trialSignIn", { value: quota.freeLimit }), [
+            { text: t("main.later"), style: "cancel" }, { text: t("main.signIn"), onPress: () => router.push("/login") },
+          ]);
+          return;
+        }
+      }
+      const granted = await startTranslator({ serverUrl, token: token ?? "", sourceLang, targetLang, model: basic ? "ml-kit" : model, mode: basic || !paidFeatures ? "game" : translationMode, allowAutomatic: paidFeatures, accentColor: "#BDB5FF" });
+      if (granted) setRunning(true);
+      else Alert.alert(t("main.captureDenied"), t("main.captureExplain"));
+    } catch (error) {
+      Alert.alert(t("main.lensFailed"), error instanceof Error ? mainInterfaceError(error.message, t) : t("main.tryAgain"));
+    } finally { setStarting(false); }
   };
 
-  const currentModelName =
-    customModels.find((c) => c.code === model)?.name != null
-      ? `${customModels.find((c) => c.code === model)?.name} (Cá nhân)`
-      : modelList.find((item) => item.code === model)?.label || model;
+  const customModel = customModels.find((item) => item.code === model);
+  const currentModel = modelList.find((item) => item.code === model);
+  const currentModelName = customModel?.name != null
+    ? t("main.personalModel", { value: customModel.name })
+    : (currentModel && modelOptionLabel(currentModel, t)) || model;
 
   return (
     <>
+      {!token && <View style={styles.card}>
+        <Text style={styles.hint}>{trial ? (trial.remaining > 0 ? t("main.trialRemain", { value: trial.remaining }) : t("main.trialExhausted")) : t("main.trialNoAccount")}</Text>
+        {trial?.remaining === 0 && <Text style={styles.hint}>{t("main.trialDailyLimit", { value: trial.freeLimit })}</Text>}
+        <Pressable style={styles.secondaryButton} accessibilityRole="button" onPress={() => router.push("/login")}>
+          <Text style={styles.secondaryButtonText}>{t(trial?.remaining === 0 ? "main.signInContinue" : "main.signIn")}</Text>
+        </Pressable>
+      </View>}
       {/* Khoi bat dau dich: khoi lon nhat, mau nhan */}
       <View style={styles.startHero}>
-        <Text allowFontScaling={false} style={styles.heroTitle}>Dịch màn hình</Text>
+        <Text allowFontScaling={false} style={styles.heroTitle}>{t("main.screenTranslation")}</Text>
         <AnimatedPressable
           style={[styles.lensTrigger, startCircleStyle]}
           accessibilityRole="button"
-          accessibilityLabel={running ? "Tắt nút dịch nổi" : "Bật nút dịch nổi"}
+          accessibilityLabel={t(running ? "main.disableFloating" : "main.enableFloating")}
           onPressIn={() => (pressScale.value = withSpring(0.97))}
           onPressOut={() => (pressScale.value = withSpring(1))}
+          disabled={starting}
           onPress={handleToggle}
         >
           <LinearGradient colors={["#10B981", "#38BDF8"]} start={{ x: 0, y: 1 }} end={{ x: 1, y: 0 }} style={styles.lensRing}>
@@ -121,17 +196,17 @@ export default function HomePanel({ onManageModels }: { onManageModels: () => vo
             </View>
           </LinearGradient>
         </AnimatedPressable>
-        <Text allowFontScaling={false} style={styles.lensActionLabel}>{running ? "DỪNG LENS" : "BẬT LENS"}</Text>
-        <Text allowFontScaling={false} style={styles.lensStatus}>{running ? "Nút dịch đang bật • Sẵn sàng quét" : "Nút dịch đang tắt"}</Text>
+        <Text allowFontScaling={false} style={styles.lensActionLabel}>{t(running ? "main.stopLens" : "main.startLens")}</Text>
+        <Text allowFontScaling={false} style={styles.lensStatus}>{t(running ? "main.floatingOn" : "main.floatingOff")}</Text>
         <Text allowFontScaling={false} style={styles.heroText}>
-          {running ? "Mở ứng dụng bạn muốn dịch, rồi nhấn đúp nút nổi." : "Bật nút nổi, rồi mở ứng dụng bạn muốn dịch."}
+          {t(running ? "main.floatingOnHint" : "main.floatingOffHint")}
         </Text>
       </View>
       {!hasOverlayPermission ? (
         <View style={styles.card}>
-          <Text allowFontScaling={false} style={styles.warning}>Chưa cấp quyền hiển thị trên ứng dụng khác</Text>
+          <Text allowFontScaling={false} style={styles.warning}>{t("main.overlayWarning")}</Text>
           <Pressable style={styles.secondaryButton} accessibilityRole="button" onPress={() => ScreenTranslator.openOverlaySettings()}>
-            <Text allowFontScaling={false} style={styles.secondaryButtonText}>Mở cài đặt để cấp quyền</Text>
+            <Text allowFontScaling={false} style={styles.secondaryButtonText}>{t("main.grantOverlay")}</Text>
           </Pressable>
         </View>
       ) : null}
@@ -139,135 +214,128 @@ export default function HomePanel({ onManageModels }: { onManageModels: () => vo
       {/* Khoi chon ngon ngu */}
       <View style={styles.bentoRow}>
       <View style={styles.bentoTile}>
-        <View style={styles.iconLabel}><StitchIcon name="translate" color={ACCENT} /><Text allowFontScaling={false} style={styles.sectionTitle}>Cặp ngôn ngữ</Text></View>
+        <View style={styles.iconLabel}><StitchIcon name="translate" color={ACCENT} /><Text allowFontScaling={false} style={styles.sectionTitle}>{t("main.pair")}</Text></View>
         <View style={styles.langRow}>
           <View style={styles.langColumn}>
-            <Text allowFontScaling={false} style={styles.langCaption}>Nguồn</Text>
+            <Text allowFontScaling={false} style={styles.langCaption}>{t("main.source")}</Text>
             <Pressable style={styles.langButton} accessibilityRole="button" onPress={() => setPickerFor("source")}>
-              <View style={styles.iconLabel}><Text allowFontScaling={false} style={styles.langButtonText}>{labelOf(sourceLang)}</Text><StitchIcon name="expand_more" size={18} color={TEXT_DIM} /></View>
+              <View style={styles.iconLabel}><Text allowFontScaling={false} style={styles.langButtonText}>{translationLanguageLabel(sourceLang, t)}</Text><StitchIcon name="expand_more" size={18} color={TEXT_DIM} /></View>
             </Pressable>
           </View>
-          <Pressable style={styles.swapButton} accessibilityRole="button" accessibilityLabel="Hoán đổi ngôn ngữ" onPress={handleSwap}>
+          <Pressable style={[styles.swapButton, !OCR_LANGUAGES.includes(targetLang) && { opacity: 0.4 }]} accessibilityRole="button" accessibilityLabel={t("main.swap")} accessibilityState={{ disabled: !OCR_LANGUAGES.includes(targetLang) }} disabled={!OCR_LANGUAGES.includes(targetLang)} onPress={handleSwap}>
             <Animated.View style={swapStyle}><StitchIcon name="sync_alt" color={ACCENT} /></Animated.View>
           </Pressable>
           <View style={styles.langColumn}>
-            <Text allowFontScaling={false} style={styles.langCaption}>Dịch sang</Text>
+            <Text allowFontScaling={false} style={styles.langCaption}>{t("main.target")}</Text>
             <Pressable style={styles.langButton} accessibilityRole="button" onPress={() => setPickerFor("target")}>
-              <View style={styles.iconLabel}><Text allowFontScaling={false} style={styles.langButtonText}>{labelOf(targetLang)}</Text><StitchIcon name="expand_more" size={18} color={TEXT_DIM} /></View>
+              <View style={styles.iconLabel}><Text allowFontScaling={false} style={styles.langButtonText}>{translationLanguageLabel(targetLang, t, locale)}</Text><StitchIcon name="expand_more" size={18} color={TEXT_DIM} /></View>
             </Pressable>
           </View>
         </View>
+        {missingPacks.length > 0 && <Pressable accessibilityRole="button" style={styles.secondaryButton} onPress={() => onOpenLanguagePacks(missingPacks[0])}>
+          <Text accessibilityLiveRegion="polite" style={styles.hint}>{t("main.missingPacks", { value: missingPacks.map(lang => translationLanguageLabel(lang, t, locale)).join(", ") })}</Text>
+          <Text style={styles.secondaryButtonText}>{t("main.languagePackPath")}</Text>
+        </Pressable>}
+        {basic && packError && <Pressable accessibilityRole="button" style={styles.secondaryButton} onPress={() => void refreshPacks()}>
+          <Text style={styles.secondaryButtonText}>{t("main.retry")}</Text>
+        </Pressable>}
       </View>
 
       {/* Khoi chon model dich: thay ten model dang dung ngay tren khoi */}
       <View style={styles.bentoTile}>
-        <View style={styles.iconLabel}><StitchIcon name="memory" color={ACCENT} /><Text allowFontScaling={false} style={styles.sectionTitle}>Model AI</Text></View>
-        {modelsLoading ? <View style={styles.rowBetween}><ActivityIndicator /><Text allowFontScaling={false} style={styles.hint}>Đang tải danh sách...</Text></View> : null}
-        {modelsError ? <Text allowFontScaling={false} style={styles.hint}>{modelsError}</Text> : null}
-        <Text allowFontScaling={false} style={styles.langPairValue}>{currentModelName}</Text>
-        <Pressable style={styles.secondaryButton} accessibilityRole="button" accessibilityLabel="Chọn model dịch" onPress={() => setPickerFor("model")}>
-          <Text allowFontScaling={false} style={styles.secondaryButtonText}>Chọn model khác</Text>
+        <View style={styles.iconLabel}><StitchIcon name="memory" color={ACCENT} /><Text allowFontScaling={false} style={styles.sectionTitle}>{t("main.translationEngine")}</Text></View>
+        <Text allowFontScaling={false} style={styles.langPairValue}>{basic ? t("main.onDeviceTranslation") : currentModelName}</Text>
+        <Pressable style={styles.secondaryButton} accessibilityRole="button" accessibilityLabel={t("main.chooseEngine")} onPress={() => setPickerFor("model")}>
+          <Text style={styles.secondaryButtonText}>{t("main.chooseEngine")}</Text>
         </Pressable>
-        <View style={{ gap: 8, marginTop: 16 }}>
+        {!basic && paidFeatures && <View style={{ gap: 8, marginTop: 16 }}>
           {(["game", "manga"] as const).map((mode) => {
             const selected = translationMode === mode;
             const color = mode === "game" ? "#16735D" : "#2167AA";
             return (
               <Pressable key={mode} accessibilityRole="radio" accessibilityState={{ checked: selected }}
-                accessibilityLabel={mode === "game" ? "Chế độ dịch game" : "Chế độ dịch truyện"}
-                accessibilityHint={mode === "game" ? "Ưu tiên tốc độ, không dùng lịch sử dịch" : "Dùng ngữ cảnh gần nhất, chỉ giữ trong phiên widget"}
+                accessibilityLabel={t(mode === "game" ? "main.gameModeA11y" : "main.mangaModeA11y")}
+                accessibilityHint={t(mode === "game" ? "main.gameHint" : "main.mangaHint")}
                 onPress={() => setTranslationMode(mode)}
                 style={{ minHeight: 44, borderRadius: 24, borderWidth: selected ? 2 : 1, borderColor: selected ? color : mode === "game" ? "#B6EBD8" : "#BEDFFF", backgroundColor: mode === "game" ? "#ECFBF3" : "#F0F8FF", paddingHorizontal: 10, paddingVertical: 9, alignItems: "center", justifyContent: "center" }}>
                 <View style={[styles.iconLabel, { gap: 6 }]}>
                   <StitchIcon name={mode === "game" ? "sports_esports" : "menu_book"} color={color} size={18} />
-                  <Text allowFontScaling={false} style={[styles.secondaryButtonText, { color, fontSize: 13, flexShrink: 1 }]}>{mode === "game" ? "Game HUD Mode" : "Manga / Webtoon"}</Text>
+                  <Text allowFontScaling={false} style={[styles.secondaryButtonText, { color, fontSize: 13, flexShrink: 1 }]}>{t(mode === "game" ? "main.gameMode" : "main.mangaMode")}</Text>
                 </View>
               </Pressable>
             );
           })}
-        </View>
+        </View>}
       </View>
       </View>
 
       {/* Khoi huong dan cu chi, rut gon hien thi ban dau */}
       <View style={styles.card}>
-        <Text allowFontScaling={false} style={styles.sectionTitle}>Nút dịch nổi hoạt động thế nào</Text>
-        <GestureRow name="Nhấn đúp" action="Dịch toàn màn hình" />
-        <GestureRow name="Nhấn giữ" action="Chọn vùng để dịch" />
-        <GestureRow name="Nhấn một lần" action="Mở thanh công cụ" last />
+        <Text allowFontScaling={false} style={styles.sectionTitle}>{t("main.gestures")}</Text>
+        <GestureRow name={t("main.doubleTap")} action={t("main.fullScreen")} />
+        <GestureRow name={t("main.hold")} action={t("main.selectRegion")} />
+        <GestureRow name={t("main.tap")} action={t("main.toolbar")} last />
       </View>
 
-      {/* Hop chon ngon ngu hoac model */}
-      <Modal visible={pickerFor !== null} transparent animationType={pickerFor === "model" ? "slide" : "fade"} onRequestClose={() => setPickerFor(null)}>
-        <Pressable style={pickerFor === "model" ? styles.sheetBackdrop : styles.modalBackdrop} onPress={() => setPickerFor(null)}>
-          <View style={pickerFor === "model" ? styles.modelSheet : styles.modalCard}>
-            {pickerFor === "model" ? <View style={styles.sheetHandle} accessibilityElementsHidden /> : null}
-            {pickerFor === "model" ? (
+      {(pickerFor === "source" || pickerFor === "target") && <TranslationLanguagePicker
+        title={t(pickerFor === "source" ? "main.sourceLanguage" : "main.target")}
+        codes={pickerFor === "source" ? OCR_LANGUAGES : ML_KIT_LANGUAGES}
+        selected={pickerFor === "source" ? sourceLang : targetLang}
+        onClose={() => setPickerFor(null)}
+        onSelect={(code) => { chooseLanguage(pickerFor, code); setPickerFor(null); }}
+      />}
+      <Modal visible={pickerFor === "model"} transparent animationType="slide" onRequestClose={() => setPickerFor(null)}>
+        <Pressable style={styles.sheetBackdrop} onPress={() => setPickerFor(null)}>
+          <View style={styles.modelSheet}>
+            <View style={styles.sheetHandle} accessibilityElementsHidden />
               <View style={styles.sheetHeader}>
                 <View style={{ flex: 1, gap: 3 }}>
-                  <Text allowFontScaling={false} style={styles.sheetTitle}>Chọn Model AI</Text>
-                  <Text allowFontScaling={false} style={styles.sheetSubtitle}>Chọn công cụ phù hợp với nhu cầu dịch của bạn</Text>
+                  <Text allowFontScaling={false} style={styles.sheetTitle}>{t("main.chooseEngine")}</Text>
+                  <Text style={styles.sheetSubtitle}>{t("main.chooseEngineHint")}</Text>
                 </View>
-                <Pressable style={styles.sheetClose} accessibilityRole="button" accessibilityLabel="Đóng chọn model" onPress={() => setPickerFor(null)}>
+                <Pressable style={styles.sheetClose} accessibilityRole="button" accessibilityLabel={t("main.closePicker")} onPress={() => setPickerFor(null)}>
                   <Text allowFontScaling={false} style={styles.sheetCloseText}>×</Text>
                 </Pressable>
               </View>
-            ) : (
-              <Text allowFontScaling={false} style={styles.sectionTitle}>
-                {pickerFor === "source" ? "Ngôn ngữ nguồn" : "Dịch sang"}
-              </Text>
-            )}
-            {pickerFor === "model" ? (
+            {pickerFor === "model" && (
               <>
-                {modelsLoading ? <View style={styles.rowBetween}><ActivityIndicator /><Text allowFontScaling={false} style={styles.hint}>Đang tải danh sách...</Text></View> : null}
-                {modelsError ? <View style={styles.sheetState}><Text allowFontScaling={false} style={styles.hint}>{modelsError}</Text><Pressable disabled={modelsLoading} style={styles.retryButton} onPress={reloadModels}><Text allowFontScaling={false} style={styles.actionBtnText}>Thử lại</Text></Pressable></View> : null}
+                {modelsLoading ? <View style={styles.rowBetween}><ActivityIndicator /><Text allowFontScaling={false} style={styles.hint}>{t("main.loadingModels")}</Text></View> : null}
+                {modelsError ? <View style={styles.sheetState}><Text allowFontScaling={false} style={styles.hint}>{mainInterfaceError(modelsError, t)}</Text><Pressable disabled={modelsLoading} style={styles.retryButton} onPress={reloadModels}><Text allowFontScaling={false} style={styles.actionBtnText}>{t("main.retry")}</Text></Pressable></View> : null}
+                {user?.coinPaymentsEnabled && <Text style={styles.hint}>{t("main.coinBalance", { value: user.coinBalance ?? 0 })}</Text>}
                 <ScrollView style={styles.modelPickerList} contentContainerStyle={{ gap: 8 }}>
-                  {modelList.map((m) => {
-                    const selected = model === m.code;
+                  {[{ code: "ml-kit", label: t("main.onDeviceTranslation"), coinPrice: 0 }, ...modelList.filter(m => m.code !== "ml-kit")].map((m) => {
+                    const local = m.code === "ml-kit";
+                    const selected = local ? basic : !basic && model === m.code;
+                    const price = m.coinPrice ?? 0;
+                    const unavailable = !local && !canUseAiModel(m, Boolean(token), paidFeatures, coinEnabled);
+                    const label = local ? m.label : modelOptionLabel(m, t);
                     return (
                       <Pressable
                         key={m.code}
                         style={[styles.modelPickerItem, selected && styles.modelPickerItemSelected]}
                         accessibilityRole="radio"
-                        accessibilityState={{ selected }}
+                        accessibilityLabel={label}
+                        accessibilityState={{ selected, disabled: unavailable }}
+                        disabled={unavailable}
                         onPress={() => {
                           setModel(m.code);
                           setPickerFor(null);
                         }}
                       >
-                        <View style={[styles.modelPickerGlyph, selected && styles.modelPickerGlyphSelected]}><StitchIcon name="memory" size={20} color={selected ? ACCENT_ON : ACCENT} /></View>
+                        <View style={[styles.modelPickerGlyph, selected && styles.modelPickerGlyphSelected]}><StitchIcon name={local ? "translate" : "memory"} size={20} color={selected ? ACCENT_ON : ACCENT} /></View>
                         <View style={{ flex: 1, gap: 2 }}>
-                          <Text allowFontScaling={false} style={styles.modalItemText}>{m.label}</Text>
-                          <Text allowFontScaling={false} style={styles.modelCodeSub}>{m.code}</Text>
+                          <Text style={styles.modalItemText}>{label}</Text>
+                          <Text style={styles.modelCodeSub}>{local ? t("main.onDeviceHint") : m.code}{price > 0 ? ` · ${t("main.coinPrice", { value: price })}` : ""}{unavailable ? ` · ${t("main.unavailable")}` : ""}</Text>
                         </View>
                         <View style={[styles.modelRadio, selected && styles.modelPickerCheck]}>{selected ? <StitchIcon name="check" size={16} color={ACCENT_ON} /> : null}</View>
                       </Pressable>
                     );
                   })}
                 </ScrollView>
-                <Pressable style={styles.manageQuickBtn} accessibilityRole="button" onPress={() => { setPickerFor(null); onManageModels(); }}>
-                  <View style={styles.iconLabel}><StitchIcon name="tune" size={20} color={ACCENT} /><Text allowFontScaling={false} style={[styles.manageQuickText, { flex: 1 }]}>Thêm / Quản lý Model AI riêng</Text><StitchIcon name="chevron_right" size={20} color={ACCENT} /></View>
-                </Pressable>
+                {token && user?.isAdmin && <Pressable style={styles.manageQuickBtn} accessibilityRole="button" onPress={() => { setPickerFor(null); onManageModels(); }}>
+                  <View style={styles.iconLabel}><StitchIcon name="tune" size={20} color={ACCENT} /><Text allowFontScaling={false} style={[styles.manageQuickText, { flex: 1 }]}>{t("main.managePersonal")}</Text><StitchIcon name="chevron_right" size={20} color={ACCENT} /></View>
+                </Pressable>}
               </>
-            ) : (
-              LANGS.map((lang) => {
-                const selected = (pickerFor === "source" ? sourceLang : targetLang) === lang.code;
-                return (
-                  <Pressable
-                    key={lang.code}
-                    style={styles.modalItem}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected }}
-                    onPress={() => {
-                      chooseLanguage(pickerFor === "source" ? "source" : "target", lang.code);
-                      setPickerFor(null);
-                    }}
-                  >
-                    <Text allowFontScaling={false} style={[styles.modalItemText, selected && styles.tabActive]}>{lang.label}</Text>
-                    {selected ? <StitchIcon name="check" size={20} color={ACCENT} /> : null}
-                  </Pressable>
-                );
-              })
             )}
           </View>
         </Pressable>

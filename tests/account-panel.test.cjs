@@ -1,8 +1,11 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
+const { createInstance } = require('i18next');
 const { createLoader } = require('./helpers/load-ts.cjs');
 
 test('account deletion confirms, blocks repeated taps, and allows retry after failure', async () => {
+  const i18n = createInstance();
+  await i18n.init({ lng: 'vi', resources: { vi: { translation: require('../locales/vi.json') } } });
   const alerts = [];
   let calls = 0;
   let resolve;
@@ -11,10 +14,11 @@ test('account deletion confirms, blocks repeated taps, and allows retry after fa
     deleteAccount: () => { calls++; return new Promise((done) => { resolve = done; }); },
   };
   const { default: AccountPanel } = createLoader({
-    react: { useRef: (value) => ({ current: value }), useState: (value) => [value, () => {}] },
+    react: { lazy: () => () => null, useRef: (value) => ({ current: value }), useState: (value) => [value, () => {}] },
     'react-native': { Pressable: 'Pressable', Text: 'Text', View: 'View', ActivityIndicator: 'Spinner', Alert: { alert: (...args) => alerts.push(args) } },
     '../stores/authStore': { useAuthStore: (select) => select(state) },
     '../hooks/useTheme': { useTheme: () => ({ styles: {} }) },
+    'react-i18next': { useTranslation: () => ({ t: i18n.t, i18n }) },
     './StitchIcon': { __esModule: true, default: () => null },
     './BrandMarks': { GoogleMark: () => null },
   }, { process: { env: {} } })('components/AccountPanel.tsx');

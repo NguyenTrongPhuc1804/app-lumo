@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="screen_translator_notification_title">Lumo Lens est en cours d’exécution</string>
+  <string name="screen_translator_notification_body">Touchez le bouton flottant pour traduire l’écran</string>
+  <string name="screen_translator_button">Bouton de traduction Lumo Lens</string>
+  <string name="screen_translator_full_screen">Traduire tout l’écran</string>
+  <string name="screen_translator_auto_on">Traduction automatique : activée</string>
+  <string name="screen_translator_auto_off">Traduction automatique : désactivée</string>
+  <string name="screen_translator_fixed_area">Traduire la zone fixe</string>
+  <string name="screen_translator_area">Traduire une zone</string>
+  <string name="screen_translator_clear_story">Effacer le contexte de l’histoire</string>
+  <string name="screen_translator_collapse">Réduire la barre d’outils</string>
+  <string name="screen_translator_stop">Désactiver le bouton de traduction</string>
+  <string name="screen_translator_story_changed">Vous semblez avoir changé d’histoire. Effacer le contexte précédent ?</string>
+  <string name="screen_translator_reset_context">Effacer le contexte</string>
+  <string name="screen_translator_keep_context">Conserver le contexte</string>
+  <string name="screen_translator_context_cleared">Le contexte de l’histoire a été effacé</string>
+  <string name="screen_translator_guest_auto">Essayez la traduction manuelle. Connectez-vous pour utiliser la traduction automatique.</string>
+  <string name="screen_translator_auto_disabled">Traduction automatique désactivée</string>
+  <string name="screen_translator_auto_enabled">Traduction automatique activée</string>
+  <string name="screen_translator_select_area">Faites glisser pour sélectionner la zone à traduire</string>
+  <string name="screen_translator_capture_failed">Impossible de capturer l’écran</string>
+  <string name="screen_translator_area_outside">La zone sélectionnée est en dehors de l’écran</string>
+  <string name="screen_translator_ocr_init_failed">Impossible de démarrer la reconnaissance de texte</string>
+  <string name="screen_translator_no_text">Aucun texte trouvé à l’écran</string>
+  <string name="screen_translator_ocr_failed">Impossible de lire le texte</string>
+  <string name="screen_translator_result_mismatch">Le nombre de traductions ne correspond pas au nombre de zones de texte</string>
+  <string name="screen_translator_failed">Échec de la traduction</string>
+  <string name="screen_translator_trial_title">Vous avez utilisé toutes vos traductions d’essai</string>
+  <string name="screen_translator_trial_body">Connectez-vous pour obtenir des traductions gratuites chaque jour.</string>
+  <string name="screen_translator_later">Plus tard</string>
+  <string name="screen_translator_sign_in">Se connecter</string>
+  <string name="screen_translator_guest_start">Rouvrez l’application pour commencer l’essai</string>
+  <string name="screen_translator_guest_load_failed">Impossible de récupérer les traductions d’essai. Réessayez</string>
+  <string name="screen_translator_guest_expired">Votre session d’essai a expiré. Touchez le bouton de traduction pour réessayer</string>
+  <string name="screen_translator_insufficient_coins">Vous n’avez pas assez de pièces pour utiliser ce modèle</string>
+  <string name="screen_translator_coins_disabled">Les modèles payables en pièces sont actuellement indisponibles</string>
+  <string name="screen_translator_guest_rate_limit">Trop de requêtes. Réessayez plus tard</string>
+  <string name="screen_translator_session_expired">Votre session a expiré. Ouvrez l’application pour vous reconnecter</string>
+  <string name="screen_translator_account_locked">Votre compte est verrouillé. Contactez un administrateur</string>
+  <string name="screen_translator_paid_required">Cette fonctionnalité nécessite Pro ou un modèle de traduction payant compatible</string>
+  <string name="screen_translator_basic_network_required">Reconnectez-vous pour vérifier votre accès ou préparer la traduction hors ligne</string>
+  <string name="screen_translator_language_pack_required">Téléchargez les packs de langues requis avant de traduire</string>
+  <string name="screen_translator_daily_limit">Vous avez atteint votre limite de traduction du jour. Réessayez demain</string>
+  <string name="screen_translator_server_error">Le serveur a renvoyé le code HTTP %1$d</string>
+</resources>

@@ -1,6 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
+import { ML_KIT_LANGUAGES, OCR_LANGUAGES } from "../lib/translation-languages";
 
 // Khóa mới. Ba khóa bên dưới là của bản cũ, chỉ dùng để chuyển dữ liệu một lần.
 const STORAGE_KEY = "lumo-lens-config";
@@ -125,7 +126,7 @@ export const useConfigStore = create<ConfigState>()(
       sourceLang: "en",
       targetLang: "vi",
       translationMode: "game",
-      model: "",
+      model: "ml-kit",
       hydrated: false,
 
       setServerUrl: (value) => set({ serverUrl: value }),
@@ -136,17 +137,19 @@ export const useConfigStore = create<ConfigState>()(
       chooseLanguage: (forWhich, code) => {
         const { sourceLang, targetLang } = get();
         if (forWhich === "source") {
-          if (code === targetLang) set({ targetLang: sourceLang });
-          set({ sourceLang: code });
+          if (!OCR_LANGUAGES.includes(code)) return;
+          set({ sourceLang: code, targetLang: code === targetLang ? sourceLang : targetLang });
         } else {
-          if (code === sourceLang) set({ sourceLang: targetLang });
-          set({ targetLang: code });
+          if (!ML_KIT_LANGUAGES.includes(code)) return;
+          // Nếu đích cũ không đọc được bằng OCR, dùng nguồn thay thế thay vì đảo sang đích cũ.
+          const nextSource = OCR_LANGUAGES.includes(targetLang) ? targetLang : code === "en" ? "vi" : "en";
+          set({ targetLang: code, sourceLang: code === sourceLang ? nextSource : sourceLang });
         }
       },
 
       swapLanguages: () => {
         const { sourceLang, targetLang } = get();
-        set({ sourceLang: targetLang, targetLang: sourceLang });
+        if (OCR_LANGUAGES.includes(targetLang)) set({ sourceLang: targetLang, targetLang: sourceLang });
       },
     }),
     {
