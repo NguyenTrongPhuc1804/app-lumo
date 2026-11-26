@@ -31,7 +31,7 @@ test('chép dữ liệu từ khóa cũ sang khóa mới, xóa cả khóa admin c
   });
   const s = await loaded(useConfigStore);
 
-  assert.equal(s.serverUrl, 'http://old');
+  assert.equal(s.serverUrl, '');
   assert.equal(s.sourceLang, 'ja');
   assert.equal(s.targetLang, 'vi');
   assert.equal(s.model, 'm1');
@@ -68,16 +68,18 @@ test('URL đã lưu rỗng hoặc chỉ có khoảng trắng thì dùng URL môi
   }
 });
 
-test('URL đã lưu có giá trị không bị URL môi trường ghi đè', async () => {
-  const { useConfigStore } = loadConfig({
+test('chỉ dùng URL môi trường và không lưu URL vào AsyncStorage', async () => {
+  const { useConfigStore, storage } = loadConfig({
     [CONFIG_KEY]: JSON.stringify({ state: { serverUrl: 'https://saved.example.com' }, version: 0 }),
   }, { EXPO_PUBLIC_SERVER_URL: 'https://env.example.com' });
-  assert.equal((await loaded(useConfigStore)).serverUrl, 'https://saved.example.com');
+  const state = await loaded(useConfigStore);
+  assert.equal(state.serverUrl, 'https://env.example.com');
+  assert.equal(JSON.parse(storage.data.get(CONFIG_KEY)).state.serverUrl, undefined);
 });
 
-test('URL đã lưu và môi trường đều rỗng thì vẫn nạp cấu hình được', async () => {
+test('thiếu URL môi trường không dùng lại URL đã lưu', async () => {
   const { useConfigStore } = loadConfig({
-    [CONFIG_KEY]: JSON.stringify({ state: { serverUrl: '' }, version: 0 }),
+    [CONFIG_KEY]: JSON.stringify({ state: { serverUrl: 'http://old' }, version: 0 }),
   });
   assert.equal((await loaded(useConfigStore)).serverUrl, '');
 });
@@ -153,13 +155,13 @@ test('ghi lỗi không làm app báo unhandled rejection', async () => {
   storage.setItem = async () => {
     throw new Error('disk full');
   };
-  useConfigStore.getState().setServerUrl('http://new');
+  useConfigStore.getState().setModel('m1');
   // Chờ một nhịp để promise bị từ chối kịp nổi lên.
   await new Promise((resolve) => setTimeout(resolve, 50));
   process.off('unhandledRejection', onUnhandled);
 
   assert.equal(unhandled.length, 0);
-  assert.equal(useConfigStore.getState().serverUrl, 'http://new');
+  assert.equal(useConfigStore.getState().model, 'm1');
 });
 
 test('xóa khóa cũ lỗi thì vẫn giữ dữ liệu đã chuyển', async () => {
@@ -174,7 +176,7 @@ test('xóa khóa cũ lỗi thì vẫn giữ dữ liệu đã chuyển', async ()
   const { useConfigStore } = load('stores/configStore.ts');
   const s = await loaded(useConfigStore);
 
-  assert.equal(s.serverUrl, 'http://old');
+  assert.equal(s.serverUrl, '');
   assert.equal(s.model, 'm1');
   // Không còn chuyển adminKey sang store mới dù khóa cũ chưa xóa được.
   assert.equal('adminKey' in s, false);

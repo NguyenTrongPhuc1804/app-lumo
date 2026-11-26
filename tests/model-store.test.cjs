@@ -60,7 +60,7 @@ test('response của server cũ về sau khi đổi server thì bị bỏ qua', 
   await ready(useConfigStore);
 
   const old = useModelStore.getState().reloadModels();
-  useConfigStore.getState().setServerUrl('http://new');
+  useConfigStore.setState({ serverUrl: 'http://new' });
   const fresh = useModelStore.getState().reloadModels();
 
   pending[1]([{ code: 'b', label: 'B' }]);
@@ -173,7 +173,7 @@ test('xóa model: chặn trùng id, đổi server trong lúc chờ thì không t
   assert.equal(deleteCalls, 1);
 
   const before = pending.length;
-  useConfigStore.getState().setServerUrl('http://third');
+  useConfigStore.setState({ serverUrl: 'http://third' });
   finishDelete(null);
   await removing;
 

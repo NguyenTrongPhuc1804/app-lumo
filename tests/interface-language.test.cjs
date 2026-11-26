@@ -127,7 +127,7 @@ test('Android settings shows one language pack panel and moves it above appearan
   }
 });
 
-test('settings localize the title and server input label for every interface language', async () => {
+test('settings localize the page and server section titles for every interface language', async () => {
   for (const [language, [title, server]] of Object.entries({
     vi: ['Cài đặt hệ thống', 'Địa chỉ server'],
     en: ['System settings', 'Server address'],
@@ -138,7 +138,7 @@ test('settings localize the title and server input label for every interface lan
   })) {
     const nodes = await settingsNodes(language);
     assert.ok(nodes.some(node => node.type === 'Text' && node.props.children === title), language);
-    assert.equal(nodes.find(node => node.type === 'TextInput').props.accessibilityLabel, server, language);
+    assert.ok(nodes.some(node => node.type === 'Text' && node.props.children === server), language);
   }
 });
 
@@ -204,11 +204,14 @@ test('the selected language radio follows the saved preference, not the active t
   assert.deepEqual(choices, ['en']);
 });
 
-test('settings keep preview, network help, and admin role details visible in English', async () => {
-  const texts = (await settingsNodes('en')).filter(node => node.type === 'Text').map(node => node.props.children);
+test('settings keep connection checks but do not let users enter a server URL', async () => {
+  const nodes = await settingsNodes('en');
+  const texts = nodes.filter(node => node.type === 'Text').map(node => node.props.children);
   assert.ok(texts.includes('Text size preview'));
   assert.ok(texts.some(text => /screen width.*Android/i.test(text)));
-  assert.ok(texts.some(text => /10\.0\.2\.2.*Wi-Fi/.test(text)));
+  assert.ok(texts.includes('Check connection'));
+  assert.ok(!nodes.some(node => node.type === 'TextInput'));
+  assert.ok(!texts.some(text => /10\.0\.2\.2/.test(text)));
   assert.ok(texts.some(text => /Only admin accounts.*AI Models.*ADMIN_KEY/.test(text)));
 });
 

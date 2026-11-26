@@ -1,6 +1,5 @@
-import { ActivityIndicator, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Platform, Pressable, ScrollView, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
-import { useConfigStore } from "../stores/configStore";
 import { useModelStore } from "../stores/modelStore";
 import { useServiceStore } from "../stores/serviceStore";
 import { useAppearanceStore } from "../stores/appearanceStore";
@@ -18,7 +17,7 @@ const chipIconRow = { flexDirection: "row", alignItems: "center", gap: 6, maxWid
 const textSizeIcons = { auto: 16, tiny: 11, small: 13, normal: 16, large: 19 } satisfies Record<TextSize, number>;
 
 export default function SettingsPanel({ initialLanguagePack }: { initialLanguagePack?: string } = {}) {
-  const { styles, ACCENT, ACCENT_ON, TEXT_DIM, TEXT_MUTED } = useTheme();
+  const { styles, ACCENT, ACCENT_ON, TEXT_DIM } = useTheme();
   const { t, i18n } = useTranslation();
   const language = i18n.language;
   const preference = useLanguageStore((s) => s.preference);
@@ -29,8 +28,6 @@ export default function SettingsPanel({ initialLanguagePack }: { initialLanguage
   const setColorMode = useAppearanceStore((s) => s.setColorMode);
   const setTextSize = useAppearanceStore((s) => s.setTextSize);
   const appearanceStorageError = useAppearanceStore((s) => s.storageError);
-  const serverUrl = useConfigStore((s) => s.serverUrl);
-  const setServerUrl = useConfigStore((s) => s.setServerUrl);
   const hasOverlayPermission = useServiceStore((s) => s.hasOverlayPermission);
   const reloadModels = useModelStore((s) => s.reloadModels);
   const modelsLoading = useModelStore((s) => s.modelsLoading);
@@ -114,27 +111,11 @@ export default function SettingsPanel({ initialLanguagePack }: { initialLanguage
       <View style={styles.card}>
         <Text allowFontScaling={false} style={styles.caption}>{t("settings.connection")}</Text>
         <View style={styles.iconLabel}><StitchIcon name="dns" color={ACCENT} /><Text allowFontScaling={false} style={styles.sectionTitle}>{t("settings.server")}</Text></View>
-        <TextInput
-          allowFontScaling={false}
-          style={styles.input}
-          value={serverUrl}
-          onChangeText={setServerUrl}
-          onBlur={() => reloadModels()}
-          autoCapitalize="none"
-          autoCorrect={false}
-          keyboardType="url"
-          placeholder="http://192.168.1.10:3000"
-          placeholderTextColor={TEXT_MUTED}
-          accessibilityLabel={t("settings.server")}
-        />
         {modelsLoading ? <View style={styles.rowBetween}><ActivityIndicator /><Text allowFontScaling={false} style={styles.hint}>{t("settings.loading")}</Text></View> : null}
         {modelsError ? <View><Text allowFontScaling={false} style={styles.hint}>{language === "vi" ? modelsError : t("settings.modelLoadError")}</Text><Pressable disabled={modelsLoading} onPress={reloadModels}><Text allowFontScaling={false} style={styles.actionBtnText}>{t("settings.retry")}</Text></Pressable></View> : null}
         <Pressable style={styles.secondaryButton} accessibilityRole="button" disabled={modelsLoading} onPress={reloadModels}>
           <View style={styles.iconLabel}><StitchIcon name="speed" size={20} color={ACCENT} /><Text allowFontScaling={false} style={styles.secondaryButtonText}>{t(modelsLoading ? "settings.checking" : "settings.check")}</Text></View>
         </Pressable>
-        <View style={styles.infoBox}>
-          <Text allowFontScaling={false} style={styles.hint}>{t("settings.networkHelp")}</Text>
-        </View>
       </View>
 
       <View style={styles.card}>

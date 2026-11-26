@@ -10,14 +10,13 @@ const LEGACY_ADMIN_KEY = "lumo-lens-admin-key";
 const LEGACY_ONBOARDED = "lumo-lens-onboarded";
 
 type ConfigState = {
-  serverUrl: string;
+  readonly serverUrl: string;
   sourceLang: string;
   targetLang: string;
   translationMode: "game" | "manga";
   model: string;
   hydrated: boolean; // true khi đã đọc xong dữ liệu đã lưu
 
-  setServerUrl: (value: string) => void;
   chooseLanguage: (forWhich: "source" | "target", code: string) => void;
   swapLanguages: () => void;
   setModel: (code: string) => void;
@@ -25,7 +24,6 @@ type ConfigState = {
 };
 
 type LegacyConfig = {
-  serverUrl?: string;
   sourceLang?: string;
   targetLang?: string;
   model?: string;
@@ -51,7 +49,6 @@ async function loadLegacyConfig(): Promise<LegacyConfig | null> {
   }
 
   const config: LegacyConfig = {};
-  if (typeof settings.serverUrl === "string" && settings.serverUrl) config.serverUrl = settings.serverUrl;
   if (typeof settings.sourceLang === "string" && settings.sourceLang) config.sourceLang = settings.sourceLang;
   if (typeof settings.targetLang === "string" && settings.targetLang) config.targetLang = settings.targetLang;
   if (typeof settings.model === "string" && settings.model) config.model = settings.model;
@@ -129,7 +126,6 @@ export const useConfigStore = create<ConfigState>()(
       model: "ml-kit",
       hydrated: false,
 
-      setServerUrl: (value) => set({ serverUrl: value }),
       setModel: (code) => set({ model: code }),
       setTranslationMode: (value) => set({ translationMode: value }),
 
@@ -160,15 +156,12 @@ export const useConfigStore = create<ConfigState>()(
         return {
           ...currentState,
           ...saved,
-          // URL rong tu ban cu khong duoc ghi de URL moi trong bien moi truong.
-          serverUrl: typeof saved?.serverUrl === "string" && saved.serverUrl.trim()
-            ? saved.serverUrl
-            : currentState.serverUrl,
+          // Bỏ qua URL người dùng từng lưu; chỉ dùng cấu hình lúc build.
+          serverUrl: currentState.serverUrl,
         };
       },
       // Chỉ lưu cấu hình người dùng chọn, không lưu cờ và hàm.
       partialize: (state) => ({
-        serverUrl: state.serverUrl,
         sourceLang: state.sourceLang,
         targetLang: state.targetLang,
         translationMode: state.translationMode,

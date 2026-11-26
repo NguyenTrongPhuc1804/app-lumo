@@ -91,7 +91,7 @@ export async function fetchModels(url: string): Promise<ModelOption[]> {
 // Danh sach day du cho man CRUD (can token cua tai khoan admin)
 export async function fetchAdminModels(url: string, token: string): Promise<CustomModel[]> {
   if (!token.trim()) throw new Error("Cần đăng nhập bằng tài khoản quản trị để xem danh sách model.");
-  if (!apiBase(url)) throw new Error("Nhập địa chỉ server trong tab Cài đặt.");
+  if (!apiBase(url)) throw new Error("Chưa cấu hình địa chỉ server");
   const res = await fetch(`${apiBase(url)}/api/admin/models`, { headers: authHeaders(token) });
   const data = await res.json().catch(() => null);
   if (!res.ok) throw new Error(authError(res.status, data));
