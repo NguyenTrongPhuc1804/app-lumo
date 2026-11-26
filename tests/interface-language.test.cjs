@@ -92,7 +92,7 @@ test('a failed earlier write does not leave an error after the latest choice is 
   assert.equal(await storage.getItem('lumo-lens-interface-language'), 'fr');
 });
 
-async function settingsNodes(language, storageError, languageStorageError, { preference = 'system', setPreference, platform = 'ios', showLanguagePacksFirst = false } = {}) {
+async function settingsNodes(language, storageError, languageStorageError, { preference = 'system', setPreference, platform = 'ios', showLanguagePacksFirst = false, connection = { reason: 'network' }, modelsLoading = false } = {}) {
   const i18n = createInstance();
   await i18n.init({ lng: language, fallbackLng: 'vi', interpolation: { escapeValue: false }, resources: {
     vi: { translation: require('../locales/vi.json') },
@@ -106,7 +106,7 @@ async function settingsNodes(language, storageError, languageStorageError, { pre
     '../stores/appearanceStore': { useAppearanceStore: select => select({ colorMode: 'light', textSize: 'auto', storageError }) },
     '../stores/serviceStore': { useServiceStore: select => select({ hasOverlayPermission: false }) },
     '../stores/configStore': { useConfigStore: select => select({ serverUrl: '' }) },
-    '../stores/modelStore': { useModelStore: select => select({ modelsError: 'Lỗi từ máy chủ', modelsLoading: false }) },
+    '../stores/modelStore': { useModelStore: select => select({ modelsError: 'UnknownHostException: private.local', modelsLoading, connection }) },
     '../modules/screen-translator': {},
     './StitchIcon': function StitchIcon() { return null; },
     './LanguageFlag': function LanguageFlag() { return null; },
@@ -115,6 +115,17 @@ async function settingsNodes(language, storageError, languageStorageError, { pre
   const walk = node => !node || typeof node !== 'object' ? [] : Array.isArray(node) ? node.flatMap(walk) : [node, ...walk(node.props?.children)];
   return walk(SettingsPanel({ initialLanguagePack: showLanguagePacksFirst ? 'ar' : undefined }));
 }
+
+test('settings shows a localized connection result, never the raw exception', async () => {
+  const text = async options => (await settingsNodes('vi', null, null, options))
+    .filter(node => node.type === 'Text').map(node => node.props.children).join(' ');
+  assert.match(await text({ connection: 'connected' }), /Đã kết nối thành công/);
+  assert.doesNotMatch(await text({ connection: 'connected', modelsLoading: true }), /Đã kết nối thành công/);
+  assert.match(await text({ connection: { reason: 'offline' } }), /Wi-Fi.*dữ liệu di động/);
+  assert.match(await text({ connection: { reason: 'http', status: 403 } }), /từ chối truy cập.*HTTP 403/);
+  assert.match(await text({ connection: { reason: 'missingUrl' } }), /Chưa cấu hình/);
+  assert.doesNotMatch(await text({}), /UnknownHostException|private\.local/);
+});
 
 test('Android settings shows one language pack panel and moves it above appearance when opened from Home', async () => {
   for (const showLanguagePacksFirst of [false, true]) {
@@ -215,7 +226,7 @@ test('settings keep connection checks but do not let users enter a server URL', 
   assert.ok(texts.some(text => /Only admin accounts.*AI Models.*ADMIN_KEY/.test(text)));
 });
 
-test('settings localize read, save, and model load errors without exposing raw messages outside Vietnamese', async () => {
+test('settings localize read, save, and connection errors without exposing technical messages', async () => {
   const readError = 'Không đọc được giao diện đã lưu. Đang dùng mặc định.';
   const saveError = 'Không lưu được giao diện. Lựa chọn chỉ áp dụng cho lần mở này.';
   const texts = async (language, error) => (await settingsNodes(language, error)).filter(node => node.type === 'Text').map(node => node.props.children);
@@ -223,12 +234,12 @@ test('settings localize read, save, and model load errors without exposing raw m
   const enSave = await texts('en', saveError);
   assert.ok(enRead.some(text => /couldn.t read.*defaults/i.test(text)));
   assert.ok(enSave.some(text => /couldn.t save.*session/i.test(text)));
-  assert.ok(enSave.some(text => /couldn.t load.*models/i.test(text)));
+  assert.ok(enSave.some(text => /can.t reach the server/i.test(text)));
   assert.ok(!enRead.includes(readError));
   assert.ok(!enSave.includes(saveError));
-  assert.ok(!enSave.includes('Lỗi từ máy chủ'));
+  assert.ok(!enSave.some(text => /UnknownHostException/.test(text)));
   assert.ok((await texts('vi', readError)).includes(readError));
   const viSave = await texts('vi', saveError);
   assert.ok(viSave.includes(saveError));
-  assert.ok(viSave.includes('Lỗi từ máy chủ'));
+  assert.ok(viSave.some(text => /Không thể kết nối máy chủ/.test(text)));
 });

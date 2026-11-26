@@ -33,11 +33,9 @@ const appErrorKeys = new Map([
   ["Không tải được lượt dùng thử. Vui lòng thử lại.", "main.trialLoadFailed"],
   ["Không tải được danh sách model.", "main.modelsLoadFailed"],
   ["Danh sách model không hợp lệ.", "main.invalidModels"],
-  ["Cần đăng nhập bằng tài khoản quản trị để xem danh sách model.", "main.listAdminRequired"],
   ["Chưa cấu hình địa chỉ server", "main.serverMissing"],
   ["Phiên đăng nhập đã hết hạn", "main.expired"],
   ["Tài khoản không có quyền thực hiện thao tác này", "main.forbidden"],
-  ["Cấu hình đã thay đổi. Vui lòng thử lại.", "main.configChanged"],
 ]);
 
 export function mainInterfaceError(message: string, t: TFunction) {

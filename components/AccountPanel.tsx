@@ -23,7 +23,7 @@ function shortIdOf(id: string) {
   return digits ? `#${digits}-LENS` : "#LENS";
 }
 
-export default function AccountPanel({ onOpenModels }: { onOpenModels: () => void }) {
+export default function AccountPanel() {
   const { styles, ACCENT, DANGER } = useTheme();
   const { t, i18n } = useTranslation();
   const user = useAuthStore((s) => s.user);
@@ -168,19 +168,6 @@ export default function AccountPanel({ onOpenModels }: { onOpenModels: () => voi
           </View>
           <Text allowFontScaling={false} style={styles.accountRowValue}>{planLabel}</Text>
         </View>
-
-        {user.isAdmin ? (
-          <Pressable style={[styles.accountListRow, { borderBottomWidth: 0 }]} accessibilityRole="button" accessibilityLabel={t('account.openManageModels')} onPress={onOpenModels}>
-            <View style={[styles.accountRowIcon, { backgroundColor: "#F0F9FF", borderColor: "#BAE6FD" }]}>
-              <StitchIcon name="memory" size={18} color="#0284C7" />
-            </View>
-            <View style={{ flex: 1, minWidth: 0 }}>
-              <Text allowFontScaling={false} style={styles.accountRowTitle}>{t('account.manageModels')}</Text>
-              <Text allowFontScaling={false} style={styles.accountRowSub}>{t('account.manageModelsHint')}</Text>
-            </View>
-            <Text allowFontScaling={false} style={styles.accountRowChevron}>›</Text>
-          </Pressable>
-        ) : null}
       </View>
 
       {error ? <Text allowFontScaling={false} accessibilityLiveRegion="polite" style={styles.hint}>{withErrorDetail(t('account.accountLoadFailed'), error)}</Text> : null}

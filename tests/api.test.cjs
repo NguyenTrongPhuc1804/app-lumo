@@ -8,11 +8,15 @@ const source = fs.readFileSync(path.join(__dirname, '../lib/api.ts'), 'utf8');
 const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText;
 const originalFetch = global.fetch;
 const moduleObject = { exports: {} };
+const screenTranslator = {};
 vm.runInNewContext(compiled, {
   exports: moduleObject.exports,
-  require: () => ({ default: {} }),
+  require: () => ({ __esModule: true, default: screenTranslator }),
   process,
   fetch: (...args) => global.fetch(...args),
+  AbortController,
+  setTimeout: (callback, ms) => setTimeout(callback, Math.min(ms, 50)),
+  clearTimeout,
 });
 const api = moduleObject.exports;
 afterEach(() => { global.fetch = originalFetch; });
@@ -54,54 +58,41 @@ test('delete account rejects an empty server without making a request', async ()
   assert.equal(await api.deleteAccount(' ', 'token'), 'Chưa cấu hình địa chỉ server');
 });
 
-test('admin list HTTP errors are not reported as an empty list', async () => {
-  global.fetch = async () => new Response(JSON.stringify({ error: 'Server unavailable' }), { status: 500 });
-  await assert.rejects(api.fetchAdminModels('http://localhost', 'token'), /Server unavailable/);
+test('public list preserves the HTTP status for connection diagnostics', async () => {
+  for (const status of [401, 403, 404, 429, 503]) {
+    global.fetch = async () => new Response('{}', { status });
+    await assert.rejects(api.fetchModels('http://localhost'), { status });
+  }
 });
 
-test('unauthorized admin request reports an expired session', async () => {
-  global.fetch = async () => new Response('{}', { status: 401 });
-  await assert.rejects(api.fetchAdminModels('http://localhost', 'token'), /hết hạn/);
+test('public list classifies DNS, generic network failures and invalid responses', async () => {
+  for (const [message, reason] of [['UnknownHostException: private.local', 'dns'], ['Failed to fetch', 'network']]) {
+    global.fetch = async () => { throw new Error(message); };
+    await assert.rejects(api.fetchModels('http://localhost'), { reason });
+  }
+  for (const body of ['<html>', '[null]', '[{}]']) {
+    global.fetch = async () => new Response(body);
+    await assert.rejects(api.fetchModels('http://localhost'), { reason: 'invalidResponse' });
+  }
 });
 
-test('forbidden admin request explains the account lacks the right', async () => {
-  global.fetch = async () => new Response(JSON.stringify({ error: 'Tài khoản không có quyền quản lý model' }), { status: 403 });
-  await assert.rejects(api.fetchAdminModels('http://localhost', 'token'), /không có quyền/);
+test('a missing address is not a successful check and an offline device is distinct from DNS failure', async () => {
+  global.fetch = async () => { assert.fail('missing URL must not fetch'); };
+  await assert.rejects(api.fetchModels(' '), { reason: 'missingUrl' });
+  screenTranslator.hasActiveNetwork = () => false;
+  global.fetch = async () => { throw new Error('UnknownHostException'); };
+  try {
+    await assert.rejects(api.fetchModels('http://localhost'), { reason: 'offline' });
+  } finally {
+    delete screenTranslator.hasActiveNetwork;
+  }
 });
 
-test('network errors are not reported as an empty admin list', async () => {
-  global.fetch = async () => { throw new Error('Network down'); };
-  await assert.rejects(api.fetchAdminModels('http://localhost', 'token'), /Network down/);
-});
-
-test('a successful empty admin list remains a valid result', async () => {
-  global.fetch = async () => new Response('[]');
-  assert.equal((await api.fetchAdminModels('http://localhost', 'token')).length, 0);
-});
-
-test('invalid admin response is rejected', async () => {
-  global.fetch = async () => new Response('{}');
-  await assert.rejects(api.fetchAdminModels('http://localhost', 'token'), /không hợp lệ/);
-});
-
-test('missing token is reported before calling the server', async () => {
-  let called = false;
-  global.fetch = async () => { called = true; return new Response('[]'); };
-  await assert.rejects(api.fetchAdminModels('http://localhost', '   '), /Cần đăng nhập/);
-  assert.equal(called, false);
-});
-
-test('admin request sends the bearer token and no admin key', async () => {
-  let seen = null;
-  global.fetch = async (url, options) => { seen = options.headers; return new Response('[]'); };
-  await api.fetchAdminModels('http://localhost', 'my-token');
-  assert.equal(seen.Authorization, 'Bearer my-token');
-  assert.equal('x-admin-key' in seen, false);
-});
-
-test('public list errors can be surfaced instead of silently falling back', async () => {
-  global.fetch = async () => new Response('{}', { status: 503 });
-  await assert.rejects(api.fetchModels('http://localhost'), /503/);
+test('a stalled public list request times out', async () => {
+  global.fetch = async (_, { signal }) => new Promise((_, reject) => {
+    signal.addEventListener('abort', () => reject(new Error('aborted')));
+  });
+  await assert.rejects(api.fetchModels('http://localhost'), { reason: 'timeout' });
 });
 
 test('a successful empty public list keeps default models', async () => {
@@ -118,9 +109,4 @@ test('me returns the account payload', async () => {
 test('me with expired token reports the session expired', async () => {
   global.fetch = async () => new Response('{}', { status: 401 });
   await assert.rejects(api.fetchMe('http://localhost', 'token'), /hết hạn/);
-});
-
-test('delete model reports a blocked account instead of a generic error', async () => {
-  global.fetch = async () => new Response(JSON.stringify({ error: 'Tài khoản đã bị khoá' }), { status: 403 });
-  assert.equal(await api.deleteModel('http://localhost', 'token', 'id'), 'Tài khoản đã bị khoá');
 });

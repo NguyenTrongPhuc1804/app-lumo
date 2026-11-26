@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.media.projection.MediaProjectionManager
+import android.net.ConnectivityManager
 import android.net.Uri
 import android.provider.Settings
 import androidx.core.content.ContextCompat
@@ -48,6 +49,10 @@ class ScreenTranslatorModule : Module() {
       preferences.getString("installId", null) ?: java.util.UUID.randomUUID().toString().also {
         preferences.edit().putString("installId", it).commit()
       }
+    }
+
+    Function("hasActiveNetwork") {
+      context.getSystemService(ConnectivityManager::class.java)?.activeNetwork != null
     }
 
     Function("getDeviceLanguageTags") {

@@ -1,5 +1,6 @@
 import { ActivityIndicator, Platform, Pressable, ScrollView, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
+import type { ReactElement } from "react";
 import { useModelStore } from "../stores/modelStore";
 import { useServiceStore } from "../stores/serviceStore";
 import { useAppearanceStore } from "../stores/appearanceStore";
@@ -16,7 +17,7 @@ const languageOptions = Object.keys(INTERFACE_LANGUAGES) as InterfaceLanguage[];
 const chipIconRow = { flexDirection: "row", alignItems: "center", gap: 6, maxWidth: "100%" } as const;
 const textSizeIcons = { auto: 16, tiny: 11, small: 13, normal: 16, large: 19 } satisfies Record<TextSize, number>;
 
-export default function SettingsPanel({ initialLanguagePack }: { initialLanguagePack?: string } = {}) {
+export default function SettingsPanel({ initialLanguagePack, refreshControl }: { initialLanguagePack?: string; refreshControl?: ReactElement } = {}) {
   const { styles, ACCENT, ACCENT_ON, TEXT_DIM } = useTheme();
   const { t, i18n } = useTranslation();
   const language = i18n.language;
@@ -31,14 +32,29 @@ export default function SettingsPanel({ initialLanguagePack }: { initialLanguage
   const hasOverlayPermission = useServiceStore((s) => s.hasOverlayPermission);
   const reloadModels = useModelStore((s) => s.reloadModels);
   const modelsLoading = useModelStore((s) => s.modelsLoading);
-  const modelsError = useModelStore((s) => s.modelsError);
+  const connection = useModelStore((s) => s.connection);
+  let connectionMessage = "";
+  if (!modelsLoading && connection === "connected") {
+    connectionMessage = t("settings.serverCheck.connected");
+  } else if (!modelsLoading && connection && connection !== "connected") {
+    if (connection.reason === "http") {
+      const { status } = connection;
+      const reason = status === 401 || status === 403 ? "denied"
+        : status === 404 ? "notFound"
+        : status === 429 ? "rateLimited"
+        : status >= 500 ? "serverError" : "http";
+      connectionMessage = `${t(`settings.serverCheck.${reason}`)} (HTTP ${status})`;
+    } else {
+      connectionMessage = t(`settings.serverCheck.${connection.reason}`);
+    }
+  }
   // Store trả về chuỗi tiếng Việt thay vì mã lỗi.
   const appearanceErrorKey = appearanceStorageError === t("settings.appearanceReadError", { lng: "vi" })
     ? "settings.appearanceReadError"
     : "settings.appearanceSaveError";
 
   return (
-    <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" refreshControl={refreshControl}>
       <View style={styles.card}>
         <Text allowFontScaling={false} style={styles.pageTitle}>{t("settings.title")}</Text>
         <Text allowFontScaling={false} style={styles.hint}>{t("settings.description")}</Text>
@@ -111,10 +127,9 @@ export default function SettingsPanel({ initialLanguagePack }: { initialLanguage
       <View style={styles.card}>
         <Text allowFontScaling={false} style={styles.caption}>{t("settings.connection")}</Text>
         <View style={styles.iconLabel}><StitchIcon name="dns" color={ACCENT} /><Text allowFontScaling={false} style={styles.sectionTitle}>{t("settings.server")}</Text></View>
-        {modelsLoading ? <View style={styles.rowBetween}><ActivityIndicator /><Text allowFontScaling={false} style={styles.hint}>{t("settings.loading")}</Text></View> : null}
-        {modelsError ? <View><Text allowFontScaling={false} style={styles.hint}>{language === "vi" ? modelsError : t("settings.modelLoadError")}</Text><Pressable disabled={modelsLoading} onPress={reloadModels}><Text allowFontScaling={false} style={styles.actionBtnText}>{t("settings.retry")}</Text></Pressable></View> : null}
-        <Pressable style={styles.secondaryButton} accessibilityRole="button" disabled={modelsLoading} onPress={reloadModels}>
-          <View style={styles.iconLabel}><StitchIcon name="speed" size={20} color={ACCENT} /><Text allowFontScaling={false} style={styles.secondaryButtonText}>{t(modelsLoading ? "settings.checking" : "settings.check")}</Text></View>
+        {connectionMessage ? <Text accessibilityLiveRegion="polite" style={connection === "connected" ? styles.ok : styles.hint}>{connectionMessage}</Text> : null}
+        <Pressable style={styles.secondaryButton} accessibilityRole="button" accessibilityState={{ busy: modelsLoading, disabled: modelsLoading }} disabled={modelsLoading} onPress={reloadModels}>
+          <View style={styles.iconLabel}>{modelsLoading ? <ActivityIndicator /> : <StitchIcon name="speed" size={20} color={ACCENT} />}<Text style={styles.secondaryButtonText}>{t(modelsLoading ? "settings.checking" : "settings.check")}</Text></View>
         </Pressable>
       </View>
 

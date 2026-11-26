@@ -1,14 +1,5 @@
 import ScreenTranslator from "../modules/screen-translator";
 
-export type CustomModel = {
-  id: string;
-  name: string;
-  code: string;
-  baseUrl: string;
-  description?: string;
-  apiKey: string; // chi con dang che tu server
-};
-
 // Danh sach ngon ngu dung chung cho ca "Nguon" va "Cua toi"
 export const LANGS = [
   { code: "en", label: "Tiếng Anh" },
@@ -75,42 +66,38 @@ export async function verifyPlayPro(url: string, token: string, purchaseToken: s
 export const labelOf = (code: string) => LANGS.find((lang) => lang.code === code)?.label ?? code;
 
 export type ModelOption = { code: string; label: string; coinPrice?: number; sharedAi?: boolean };
-// Lay danh sach model dang bat tu server, khong co thi tra ve danh sach mac dinh
+export type ModelConnectionError =
+  | { reason: "missingUrl" | "offline" | "dns" | "network" | "timeout" | "invalidResponse" }
+  | { reason: "http"; status: number };
+
 export async function fetchModels(url: string): Promise<ModelOption[]> {
-  if (!apiBase(url)) return DEFAULT_MODELS;
-  const res = await fetch(`${apiBase(url)}/api/models`, {
-    headers: { "x-app-key": process.env.EXPO_PUBLIC_APP_KEY ?? "" },
-  });
-  if (!res.ok) throw new Error(`Không tải được model: HTTP ${res.status}`);
-  const data = await res.json();
-  if (!Array.isArray(data)) throw new Error("Danh sách model không hợp lệ.");
-  if (data.length === 0) return DEFAULT_MODELS;
-  return data.map((item: any) => ({ code: item.code, label: item.name || item.code, coinPrice: item.coinPrice ?? 0, ...(item.sharedAi === true && { sharedAi: true }) }));
-}
+  const base = apiBase(url);
+  if (!base) throw { reason: "missingUrl" } satisfies ModelConnectionError;
 
-// Danh sach day du cho man CRUD (can token cua tai khoan admin)
-export async function fetchAdminModels(url: string, token: string): Promise<CustomModel[]> {
-  if (!token.trim()) throw new Error("Cần đăng nhập bằng tài khoản quản trị để xem danh sách model.");
-  if (!apiBase(url)) throw new Error("Chưa cấu hình địa chỉ server");
-  const res = await fetch(`${apiBase(url)}/api/admin/models`, { headers: authHeaders(token) });
-  const data = await res.json().catch(() => null);
-  if (!res.ok) throw new Error(authError(res.status, data));
-  if (!Array.isArray(data)) throw new Error("Danh sách model không hợp lệ.");
-  return data;
-}
-
-// Xoa model tren server. Tra ve thong bao loi, null neu thanh cong.
-export async function deleteModel(serverUrl: string, token: string, id: string): Promise<string | null> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10000);
   try {
-    const res = await fetch(`${apiBase(serverUrl)}/api/admin/models/${id}`, {
-      method: "DELETE",
-      headers: authHeaders(token),
+    const res = await fetch(`${base}/api/models`, {
+      headers: { "x-app-key": process.env.EXPO_PUBLIC_APP_KEY ?? "" },
+      signal: controller.signal,
+    }).catch((error: unknown) => {
+      if (controller.signal.aborted) throw { reason: "timeout" } satisfies ModelConnectionError;
+      if (ScreenTranslator.hasActiveNetwork?.() === false) throw { reason: "offline" } satisfies ModelConnectionError;
+      if (/UnknownHostException|Unable to resolve host|ERR_NAME_NOT_RESOLVED/i.test(String(error))) {
+        throw { reason: "dns" } satisfies ModelConnectionError;
+      }
+      throw { reason: "network" } satisfies ModelConnectionError;
     });
-    if (res.ok) return null;
-    const data = await res.json().catch(() => ({}));
-    return authError(res.status, data);
-  } catch (err: any) {
-    return err.message;
+    if (!res.ok) throw { reason: "http", status: res.status } satisfies ModelConnectionError;
+    const data = await res.json().catch(() => null);
+    if (controller.signal.aborted) throw { reason: "timeout" } satisfies ModelConnectionError;
+    if (!Array.isArray(data) || data.some(item => typeof item?.code !== "string" || !item.code.trim())) {
+      throw { reason: "invalidResponse" } satisfies ModelConnectionError;
+    }
+    if (data.length === 0) return DEFAULT_MODELS;
+    return data.map(item => ({ code: item.code, label: item.name || item.code, coinPrice: item.coinPrice ?? 0, ...(item.sharedAi === true && { sharedAi: true }) }));
+  } finally {
+    clearTimeout(timeout);
   }
 }
 

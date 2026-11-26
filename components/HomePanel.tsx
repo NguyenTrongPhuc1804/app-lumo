@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { LinearGradient } from "expo-linear-gradient";
-import { ActivityIndicator, Alert, AppState, Modal, Platform, Pressable, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Alert, AppState, Modal, Platform, Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withSpring, withTiming } from "react-native-reanimated";
 import { router } from "expo-router";
 import { fetchGuestQuota, startTranslator, stopTranslator } from "../lib/api";
@@ -29,7 +29,7 @@ function GestureRow({ name, action, last }: { name: string; action: string; last
   );
 }
 
-export default function HomePanel({ onManageModels, onOpenLanguagePacks }: { onManageModels: () => void; onOpenLanguagePacks: (language: string) => void }) {
+export default function HomePanel({ onOpenLanguagePacks }: { onOpenLanguagePacks: (language: string) => void }) {
   const { styles, ACCENT, ACCENT_ON, TEXT_DIM } = useTheme();
   const { t, i18n } = useTranslation();
   const locale = i18n?.resolvedLanguage;
@@ -45,7 +45,6 @@ export default function HomePanel({ onManageModels, onOpenLanguagePacks }: { onM
   const chooseLanguage = useConfigStore((s) => s.chooseLanguage);
   const swapLanguages = useConfigStore((s) => s.swapLanguages);
   const modelList = useModelStore((s) => s.modelList);
-  const customModels = useModelStore((s) => s.customModels);
   const modelsLoading = useModelStore((s) => s.modelsLoading);
   const modelsError = useModelStore((s) => s.modelsError);
   const reloadModels = useModelStore((s) => s.reloadModels);
@@ -77,21 +76,34 @@ export default function HomePanel({ onManageModels, onOpenLanguagePacks }: { onM
     return () => subscription.remove();
   }, [basic]);
 
+  const trialRequest = useRef(0);
+  const [refreshing, setRefreshing] = useState(false);
+  const refreshTrial = useCallback(async () => {
+    if (token || !serverUrl.trim() || Platform.OS !== "android") return;
+    const request = ++trialRequest.current;
+    try {
+      const quota = await fetchGuestQuota(serverUrl);
+      if (request === trialRequest.current) setTrial(quota);
+    } catch {
+      if (request === trialRequest.current) setTrial(null);
+    }
+  }, [serverUrl, token]);
+
   useEffect(() => {
     setTrial(null);
-    if (token || !serverUrl.trim() || Platform.OS !== "android") return;
-    let request = 0;
-    const refresh = async () => {
-      const id = ++request;
-      try {
-        const quota = await fetchGuestQuota(serverUrl);
-        if (id === request) setTrial(quota);
-      } catch { if (id === request) setTrial(null); }
-    };
-    void refresh();
-    const subscription = AppState.addEventListener("change", (state) => { if (state === "active") void refresh(); });
-    return () => { request++; subscription.remove(); };
-  }, [serverUrl, token]);
+    void refreshTrial();
+    const subscription = AppState.addEventListener("change", (state) => { if (state === "active") void refreshTrial(); });
+    return () => { trialRequest.current++; subscription.remove(); };
+  }, [refreshTrial]);
+
+  const refreshHome = async () => {
+    setRefreshing(true);
+    try {
+      await Promise.allSettled([reloadModels(), token ? useAuthStore.getState().reloadMe() : refreshTrial()]);
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   // Hieu ung: nut tron co lai khi nhan, phap phong khi dang bat; nut doi ngon ngu xoay 180 do
   const pressScale = useSharedValue(1);
@@ -108,6 +120,24 @@ export default function HomePanel({ onManageModels, onOpenLanguagePacks }: { onM
   const handleSwap = () => {
     swapRotation.value = withSpring(swapRotation.value + 180);
     swapLanguages();
+  };
+
+  const prepareOffline = async (accountToken: string) => {
+    const isCurrentSession = () => useAuthStore.getState().token === accountToken && useConfigStore.getState().serverUrl === serverUrl;
+    try {
+      const remaining = await ScreenTranslator.getOfflineTranslationRemaining(serverUrl, accountToken);
+      if (remaining !== 0 || !isCurrentSession()) return;
+      const current = useAuthStore.getState().user;
+      const count = current?.dailyLimit == null ? 3 : Math.min(3, Math.max(1, current.dailyLimit - current.usageCount));
+      const reserved = await ScreenTranslator.prepareOfflineTranslation(serverUrl, accountToken, count);
+      if (!isCurrentSession()) {
+        ScreenTranslator.clearOfflineTranslation(serverUrl, accountToken);
+        return;
+      }
+      if (reserved) await useAuthStore.getState().reloadMe();
+    } catch {
+      // Không chặn widget khi chưa kết nối được server để giữ lượt.
+    }
   };
 
   // Nut tron lon: bat hoac tat widget dich
@@ -154,21 +184,22 @@ export default function HomePanel({ onManageModels, onOpenLanguagePacks }: { onM
         }
       }
       const granted = await startTranslator({ serverUrl, token: token ?? "", sourceLang, targetLang, model: basic ? "ml-kit" : model, mode: basic || !paidFeatures ? "game" : translationMode, allowAutomatic: paidFeatures, accentColor: "#BDB5FF" });
-      if (granted) setRunning(true);
-      else Alert.alert(t("main.captureDenied"), t("main.captureExplain"));
+      if (granted) {
+        setRunning(true);
+        if (basic && token && Platform.OS === "android") {
+          void prepareOffline(token);
+        }
+      } else Alert.alert(t("main.captureDenied"), t("main.captureExplain"));
     } catch (error) {
       Alert.alert(t("main.lensFailed"), error instanceof Error ? mainInterfaceError(error.message, t) : t("main.tryAgain"));
     } finally { setStarting(false); }
   };
 
-  const customModel = customModels.find((item) => item.code === model);
   const currentModel = modelList.find((item) => item.code === model);
-  const currentModelName = customModel?.name != null
-    ? t("main.personalModel", { value: customModel.name })
-    : (currentModel && modelOptionLabel(currentModel, t)) || model;
+  const currentModelName = (currentModel && modelOptionLabel(currentModel, t)) || model;
 
   return (
-    <>
+    <ScrollView contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refreshHome} />}>
       {!token && <View style={styles.card}>
         <Text style={styles.hint}>{trial ? (trial.remaining > 0 ? t("main.trialRemain", { value: trial.remaining }) : t("main.trialExhausted")) : t("main.trialNoAccount")}</Text>
         {trial?.remaining === 0 && <Text style={styles.hint}>{t("main.trialDailyLimit", { value: trial.freeLimit })}</Text>}
@@ -332,14 +363,11 @@ export default function HomePanel({ onManageModels, onOpenLanguagePacks }: { onM
                     );
                   })}
                 </ScrollView>
-                {token && user?.isAdmin && <Pressable style={styles.manageQuickBtn} accessibilityRole="button" onPress={() => { setPickerFor(null); onManageModels(); }}>
-                  <View style={styles.iconLabel}><StitchIcon name="tune" size={20} color={ACCENT} /><Text allowFontScaling={false} style={[styles.manageQuickText, { flex: 1 }]}>{t("main.managePersonal")}</Text><StitchIcon name="chevron_right" size={20} color={ACCENT} /></View>
-                </Pressable>}
               </>
             )}
           </View>
         </Pressable>
       </Modal>
-    </>
+    </ScrollView>
   );
 }

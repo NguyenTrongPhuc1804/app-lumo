@@ -29,7 +29,7 @@ test('account deletion confirms, blocks repeated taps, and allows retry after fa
     nodes.push(node);
     walk(node.props?.children);
   };
-  walk(AccountPanel({ onOpenModels() {} }));
+  walk(AccountPanel());
   const button = nodes.find((node) => node.props?.accessibilityLabel === 'Xoá tài khoản vĩnh viễn');
   assert.ok(button);
   button.props.onPress();

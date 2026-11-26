@@ -152,12 +152,12 @@ test('French account deletion localizes accessibility and confirmation while pre
     nodes.push(node);
     walk(node.props?.children);
   };
-  walk(AccountPanel({ onOpenModels() {} }));
+  walk(AccountPanel());
   assert.ok(nodes.some((node) => node.props?.children === 'ID LUMO : #1-LENS'));
   assert.ok(nodes.some((node) => node.props?.children === '0 pièce'));
   state.user.coinBalance = 1200;
   nodes.length = 0;
-  walk(AccountPanel({ onOpenModels() {} }));
+  walk(AccountPanel());
   assert.ok(nodes.some((node) => node.props?.children === `${(1200).toLocaleString('fr')} pièces`));
   const button = nodes.find((node) => node.props?.accessibilityLabel === 'Supprimer définitivement le compte');
   assert.ok(button);

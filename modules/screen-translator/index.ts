@@ -26,6 +26,7 @@ export type StartOptions = {
 
 type ScreenTranslatorNative = {
   getGuestInstallId(): string;
+  hasActiveNetwork?(): boolean;
   getDownloadedLanguagePacks(): Promise<string[]>;
   downloadLanguagePack(language: string): Promise<void>;
   deleteLanguagePack(language: string): Promise<void>;

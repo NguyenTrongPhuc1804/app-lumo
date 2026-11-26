@@ -30,8 +30,6 @@ test('chỉ request mới nhất được cập nhật danh sách và loading', 
   const { useConfigStore, useModelStore } = loadStores({
     DEFAULT_MODELS: [],
     fetchModels: () => new Promise((resolve) => pending.push(resolve)),
-    fetchAdminModels: async () => [],
-    deleteModel: async () => null,
   });
   await ready(useConfigStore);
 
@@ -41,12 +39,14 @@ test('chỉ request mới nhất được cập nhật danh sách và loading', 
   pending[0]([{ code: 'old', label: 'Old' }]);
   await first;
   assert.equal(useModelStore.getState().modelsLoading, true);
+  assert.equal(useModelStore.getState().connection, null);
   assert.equal(useModelStore.getState().modelList.length, 0);
 
   pending[1]([{ code: 'new', label: 'New' }]);
   await second;
   assert.equal(useModelStore.getState().modelsLoading, false);
   assert.equal(useModelStore.getState().modelList[0].code, 'new');
+  assert.equal(useModelStore.getState().connection, 'connected');
 });
 
 test('response của server cũ về sau khi đổi server thì bị bỏ qua', async () => {
@@ -54,8 +54,6 @@ test('response của server cũ về sau khi đổi server thì bị bỏ qua', 
   const { useConfigStore, useModelStore } = loadStores({
     DEFAULT_MODELS: [],
     fetchModels: () => new Promise((resolve) => pending.push(resolve)),
-    fetchAdminModels: async () => [],
-    deleteModel: async () => null,
   });
   await ready(useConfigStore);
 
@@ -77,8 +75,6 @@ test('model đã lưu không còn trên server thì chọn model đầu tiên', 
   const { useConfigStore, useModelStore } = loadStores({
     DEFAULT_MODELS: [],
     fetchModels: () => new Promise((resolve) => pending.push(resolve)),
-    fetchAdminModels: async () => [],
-    deleteModel: async () => null,
   });
   await ready(useConfigStore);
   useConfigStore.getState().setModel('gone');
@@ -98,8 +94,6 @@ test('model người dùng chọn trong lúc đang tải thì không bị ghi đ
   const { useConfigStore, useModelStore } = loadStores({
     DEFAULT_MODELS: [],
     fetchModels: () => new Promise((resolve) => pending.push(resolve)),
-    fetchAdminModels: async () => [],
-    deleteModel: async () => null,
   });
   await ready(useConfigStore);
 
@@ -121,14 +115,13 @@ test('tải lỗi thì hiện lỗi và tắt loading', async () => {
     fetchModels: async () => {
       throw new Error('down');
     },
-    fetchAdminModels: async () => [],
-    deleteModel: async () => null,
   });
   await ready(useConfigStore);
 
   await useModelStore.getState().reloadModels();
 
   assert.equal(useModelStore.getState().modelsError, 'down');
+  assert.equal(useModelStore.getState().connection.reason, 'network');
   assert.equal(useModelStore.getState().modelsLoading, false);
 });
 
@@ -138,111 +131,10 @@ test('lỗi không phải Error thì dùng câu thông báo mặc định', asyn
     fetchModels: async () => {
       throw 'down';
     },
-    fetchAdminModels: async () => [],
-    deleteModel: async () => null,
   });
   await ready(useConfigStore);
 
   await useModelStore.getState().reloadModels();
 
   assert.equal(useModelStore.getState().modelsError, 'Không tải được danh sách model.');
-});
-
-test('xóa model: chặn trùng id, đổi server trong lúc chờ thì không tải lại', async () => {
-  let finishDelete;
-  let deleteCalls = 0;
-  const pending = [];
-  const { useConfigStore, useModelStore } = loadStores({
-    DEFAULT_MODELS: [],
-    fetchModels: () => new Promise((resolve) => pending.push(resolve)),
-    fetchAdminModels: async () => [],
-    deleteModel: () => {
-      deleteCalls++;
-      return new Promise((resolve) => {
-        finishDelete = resolve;
-      });
-    },
-  });
-  await ready(useConfigStore);
-  useModelStore.setState({ customModels: [{ id: 'model-1', name: 'One', code: 'one', baseUrl: '', apiKey: '' }] });
-
-  const removing = useModelStore.getState().removeModel('model-1');
-  // Copy sang mảng của test vì store chạy trong vm (realm khác).
-  assert.deepEqual([...useModelStore.getState().deletingIds], ['model-1']);
-  assert.equal(await useModelStore.getState().removeModel('model-1'), null);
-  assert.equal(deleteCalls, 1);
-
-  const before = pending.length;
-  useConfigStore.setState({ serverUrl: 'http://third' });
-  finishDelete(null);
-  await removing;
-
-  assert.equal(pending.length, before);
-  assert.equal(useModelStore.getState().deletingIds.length, 0);
-});
-
-test('xóa model: cấu hình không đổi thì tải lại cả hai danh sách', async () => {
-  let modelCalls = 0;
-  let adminCalls = 0;
-  const { useConfigStore, useModelStore } = loadStores({
-    DEFAULT_MODELS: [],
-    fetchModels: async () => {
-      modelCalls++;
-      return [];
-    },
-    fetchAdminModels: async () => {
-      adminCalls++;
-      return [{ id: 'x', name: 'X', code: 'x', baseUrl: '', apiKey: '' }];
-    },
-    deleteModel: async () => null,
-  });
-  await ready(useConfigStore);
-  await useModelStore.getState().reloadAdminModels();
-  modelCalls = 0;
-  adminCalls = 0;
-
-  assert.equal(await useModelStore.getState().removeModel('x'), null);
-
-  assert.equal(modelCalls, 1);
-  assert.equal(adminCalls, 1);
-});
-
-test('xóa model: id không còn trong danh sách hiện tại thì không gửi DELETE', async () => {
-  let deleteCalls = 0;
-  const { useConfigStore, useModelStore } = loadStores({
-    DEFAULT_MODELS: [],
-    fetchModels: async () => [],
-    fetchAdminModels: async () => [],
-    deleteModel: async () => {
-      deleteCalls++;
-      return null;
-    },
-  });
-  await ready(useConfigStore);
-
-  // Danh sách của server cũ đã bị xóa khi đổi server, nên id này không còn hợp lệ.
-  const error = await useModelStore.getState().removeModel('model-of-old-server');
-
-  assert.equal(error, 'Cấu hình đã thay đổi. Vui lòng thử lại.');
-  assert.equal(deleteCalls, 0);
-});
-
-test('xóa model: server trả lỗi thì trả về câu lỗi và không tải lại', async () => {
-  let modelCalls = 0;
-  const { useConfigStore, useModelStore } = loadStores({
-    DEFAULT_MODELS: [],
-    fetchModels: async () => {
-      modelCalls++;
-      return [];
-    },
-    fetchAdminModels: async () => [],
-    deleteModel: async () => 'Tài khoản không có quyền quản lý model',
-  });
-  await ready(useConfigStore);
-  useModelStore.setState({ customModels: [{ id: 'x', name: 'X', code: 'x', baseUrl: '', apiKey: '' }] });
-  modelCalls = 0;
-
-  assert.equal(await useModelStore.getState().removeModel('x'), 'Tài khoản không có quyền quản lý model');
-  assert.equal(modelCalls, 0);
-  assert.equal(useModelStore.getState().deletingIds.length, 0);
 });

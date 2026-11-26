@@ -56,12 +56,6 @@ export function useAppSync() {
     useModelStore.getState().reloadModels();
   }, [serverUrl]);
 
-  // Đổi server hoặc tài khoản thì bắt đầu lại danh sách model riêng.
-  useEffect(() => {
-    useModelStore.setState({ customModels: [] });
-    useModelStore.getState().reloadAdminModels();
-  }, [serverUrl, token]);
-
   // Quay lại app (ví dụ sau khi cấp quyền) thì kiểm tra lại trạng thái.
   useEffect(() => {
     if (Platform.OS !== "android") return;
